@@ -7,23 +7,18 @@ Create parcel fieldset
 - Write fieldset to disk for later usage with parcels.from_parcels()
 """
 
-import dask, dask.distributed
-import dask_jobqueue
-import parcels
-import numpy as np
-import os
-from pathlib import Path
-from datetime import timedelta
-import xarray as xr
-import calendar
-import warnings
-warnings.filterwarnings("ignore")
-import numpy as np
-from matplotlib import pyplot as plt 
-from glob import glob
-import tqdm as tqdm
-import cf
 import logging
+import warnings
+from glob import glob
+
+import cf
+import numpy as np
+import parcels
+import tqdm as tqdm
+import xarray as xr
+
+warnings.filterwarnings("ignore")
+
 
 def get_files(inpath, min_ind=0, max_ind=None):
     ufiles = sorted(glob(f"{inpath}/U/*.nc"))[min_ind:max_ind]
@@ -36,7 +31,7 @@ def get_files(inpath, min_ind=0, max_ind=None):
 
 def create_dataset(ufiles, vfiles, wfiles, sfiles, tfiles):
     """Create xarray dataset from model data"""
-    
+
     ## Get depthw from one of the files to set it for all variables
     ds = xr.open_dataset(wfiles[0])
     depthw = ds.depthw.values
@@ -49,46 +44,67 @@ def create_dataset(ufiles, vfiles, wfiles, sfiles, tfiles):
         time_units = time_var.units
         cf_time = cf.Data(time_var.values, units=time_units)
         time = cf_time.datetime_array
-        time = np.array(time, dtype='datetime64[s]')
-        time = (time - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')
+        time = np.array(time, dtype="datetime64[s]")
+        time = (time - np.datetime64("1970-01-01")) / np.timedelta64(1, "s")
         return time
 
     def preprocessor(ds):
         time = get_time(ds)
-        ds['time_counter'] = time
+        ds["time_counter"] = time
         return ds
 
     dss = []
     for var_file in tqdm.tqdm([ufiles, vfiles, wfiles, sfiles, tfiles]):
-        ds_ = xr.open_mfdataset(var_file, combine='nested', concat_dim='time_counter', decode_cf=False, parallel=True, preprocess=preprocessor)
-        if 'deptht' in ds_.coords:
-            #TODO: check if u,v,t,s can really be set to depthw although they are on deptht
+        ds_ = xr.open_mfdataset(
+            var_file,
+            combine="nested",
+            concat_dim="time_counter",
+            decode_cf=False,
+            parallel=True,
+            preprocess=preprocessor,
+        )
+        if "deptht" in ds_.coords:
+            # TODO: check if u,v,t,s can really be set to depthw although they are on deptht
             ds_ = ds_.rename({"deptht": "depthw"})
-            ds_['depthw'] = depthw
+            ds_["depthw"] = depthw
         dss.append(ds_)
-    ds = xr.merge(dss, compat='override')
-    ds = ds.set_coords(['nav_lat', 'nav_lon'])  #nav_lat and nav_lon are not in the coords of the merged dataset but data_vars
-    ds['nav_lat'] = ds.nav_lat.isel(time_counter=0)
-    ds['nav_lon'] = ds.nav_lon.isel(time_counter=0)
-    ds['time_counter'] = cf.Data(ds.time_counter.values, units='seconds since 1970-01-01').datetime_array
-    ds['time_counter'] = ds.time_counter.astype('datetime64[s]')
+    ds = xr.merge(dss, compat="override")
+    ds = ds.set_coords(
+        ["nav_lat", "nav_lon"]
+    )  # nav_lat and nav_lon are not in the coords of the merged dataset but data_vars
+    ds["nav_lat"] = ds.nav_lat.isel(time_counter=0)
+    ds["nav_lon"] = ds.nav_lon.isel(time_counter=0)
+    ds["time_counter"] = cf.Data(
+        ds.time_counter.values, units="seconds since 1970-01-01"
+    ).datetime_array
+    ds["time_counter"] = ds.time_counter.astype("datetime64[s]")
     return ds
 
 
 def create_mapping():
     """Create mapping of parcel and model dimensions and variables"""
-    coords = xr.open_dataset('coords.nc')
+    coords = xr.open_dataset("coords.nc")
 
-    variables = {'U': 'vozocrtx', 'V': 'vomecrty', 'W': 'vovecrtz', 'S': 'vosaline', 'T': 'votemper'}
+    variables = {
+        "U": "vozocrtx",
+        "V": "vomecrty",
+        "W": "vovecrtz",
+        "S": "vosaline",
+        "T": "votemper",
+    }
 
     filenames = {
-        "U": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": ufiles}, # must use same everywhere w,files. but w depth is 0, northeast corner of T grid is lid
+        "U": {
+            "lon": wfiles[0],
+            "lat": wfiles[0],
+            "depth": wfiles[0],
+            "data": ufiles,
+        },  # must use same everywhere w,files. but w depth is 0, northeast corner of T grid is lid
         "V": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": vfiles},
         "W": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": wfiles},
         "S": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": sfiles},
-        "T": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": tfiles}
+        "T": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": tfiles},
     }
-
 
     c_grid_dimensions = {
         "lon": "nav_lon",
@@ -102,10 +118,15 @@ def create_mapping():
         "V": c_grid_dimensions,
         "W": c_grid_dimensions,
         "S": c_grid_dimensions,
-        "T": c_grid_dimensions
+        "T": c_grid_dimensions,
     }
 
-    return coords, variables, filenames, 
+    return (
+        coords,
+        variables,
+        filenames,
+        dimensions,
+    )
 
 
 if __name__ == "__main__":
@@ -119,22 +140,26 @@ if __name__ == "__main__":
     lon_bds = (-6.5, -2.5)
     lat_bds = (61.3, 60.3)
 
-    lon=np.random.uniform(*lon_bds, size=(n_particles_per_release, ))
-    lat=np.random.uniform(*lat_bds, size=(n_particles_per_release, ))
-    depth = np.random.uniform(650, 1100, size=(n_particles_per_release, ))
+    lon = np.random.uniform(*lon_bds, size=(n_particles_per_release,))
+    lat = np.random.uniform(*lat_bds, size=(n_particles_per_release,))
+    depth = np.random.uniform(650, 1100, size=(n_particles_per_release,))
 
-    release_times = np.datetime64('1993-01-01') + np.arange(28 * 73) * np.timedelta64(5 * 24 * 3600, 's')
+    release_times = np.datetime64("1993-01-01") + np.arange(28 * 73) * np.timedelta64(
+        5 * 24 * 3600, "s"
+    )
     release_times = release_times[1:2004]
 
     logging.info(f"Release times: {release_times}")
 
     # Model filenames
-    inpath='/gxfs_work/geomar/smomw452/GLORYS12/'
+    inpath = "/gxfs_work/geomar/smomw452/GLORYS12/"
 
     max_ind = None
-    min_ind = 2 # start from 1993!
+    min_ind = 2  # start from 1993!
 
-    ufiles, vfiles, wfiles, sfiles, tfiles = get_files(inpath, min_ind=min_ind, max_ind=max_ind)
+    ufiles, vfiles, wfiles, sfiles, tfiles = get_files(
+        inpath, min_ind=min_ind, max_ind=max_ind
+    )
     logging.info(f"Number of files: {len(ufiles)}")
 
     coords, variables, filenames, dimensions = create_mapping()
@@ -142,6 +167,6 @@ if __name__ == "__main__":
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", parcels.FileWarning)
-        fieldsetC = parcels.FieldSet.from_nemo(ds, variables, dimensions,
-            allow_time_extrapolation=False)
-
+        fieldsetC = parcels.FieldSet.from_nemo(
+            ds, variables, dimensions, allow_time_extrapolation=False
+        )
