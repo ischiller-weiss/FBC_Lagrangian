@@ -123,7 +123,10 @@ kernels = adv + sample + sample_UV + age + deleteparticle
 pset.execute(kernels, runtime=0)
 
 t = np.array([p.temp for p in pset])  # detect via temperature land particles
-pset.remove_indices(np.argwhere(t == 0).flatten())
+land_indices = np.argwhere(t == 0).flatten()
+pset.remove_indices(land_indices)
+count = land_indices.sum()
+logging.info(f"Removed {count} particles initialized on land")
 
 pset.execute(
     kernels,
