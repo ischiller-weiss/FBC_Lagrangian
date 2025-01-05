@@ -1,4 +1,5 @@
 #!/gxfs_home/geomar/smomw452//miniconda3/envs/py3_std_maps_2023-11-20/bin/python
+import argparse
 import logging
 import os
 import warnings
@@ -17,6 +18,32 @@ import kernel as custom_kernel
 
 warnings.filterwarnings("ignore")
 
+# Argument parser
+parser = argparse.ArgumentParser(description="Run particle tracking experiment.")
+parser.add_argument(
+    "--release_start",
+    type=str,
+    default="2003-01-01T00:00:00",
+    help="Start date for particle release (format: YYYYMM-DDTHH:MM:SS)",
+)
+parser.add_argument(
+    "--release_end",
+    type=str,
+    default="2020-06-03T00:00:00",
+    help="End date for particle release (format: YYYYMM-DDTHH:MM:SS)",
+)
+parser.add_argument(
+    "--frequency",
+    type=str,
+    default="5D",
+    help="Frequency of particle release",
+)
+args = parser.parse_args()
+
+release_times = pd.date_range(
+    start=args.release_start, end=args.release_end, freq=args.frequency
+)
+
 # Set random seed
 np.random.seed(2345)
 
@@ -30,8 +57,6 @@ lat_bds = (61.3, 60.3)
 lon = np.random.uniform(*lon_bds, size=(n_particles_per_release,))
 lat = np.random.uniform(*lat_bds, size=(n_particles_per_release,))
 depth = np.random.uniform(650, 1100, size=(n_particles_per_release,))
-
-release_times = pd.date_range(start="2003-01-01", end="2020-06-03", freq="5D", unit="s")
 
 logging.info(f"Release times: {release_times}")
 
