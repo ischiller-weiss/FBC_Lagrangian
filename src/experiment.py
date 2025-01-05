@@ -6,6 +6,7 @@ import warnings
 from datetime import timedelta
 
 import dask
+import dask.bag as db
 import dask.distributed
 import dask_jobqueue
 import numpy as np
@@ -120,34 +121,76 @@ lat_release = lat  # latitude of release
 depth_release = depth  # depth of release, meters
 time_release = release_times
 
-pset = parcels.ParticleSet.from_list(
-    fieldset=fieldsetC,
-    pclass=custom_kernel.SampleParticle,
-    lon=np.tile(lon_release, len(release_times)),
-    lat=np.tile(lat_release, len(release_times)),
-    depth=np.tile(depth_release, len(release_times)),
-    time=np.repeat(release_times, len(lon_release)),
+
+# Parallel run
+def run_parcels(
+    release_times: list,
+    lon: np.array,
+    lat: np.array,
+    depth: np.array,
+    n_particles_per_release: int,
+    fieldsetC: parcels.FieldSet,
+    kernels: list,
+):
+    pset = parcels.ParticleSet.from_list(
+        fieldset=fieldsetC,
+        pclass=custom_kernel.SampleParticle,
+        lon=np.tile(lon_release, len(release_times)),
+        lat=np.tile(lat_release, len(release_times)),
+        depth=np.tile(depth_release, len(release_times)),
+        time=np.repeat(release_times, len(lon_release)),
+    )
+
+    # build composite kernel
+    # pset_kernel = [pset.Kernel(k) for k in kernels]
+    # kernel = sum(pset_kernel)
+    kernel = pset.Kernel(kernels)
+
+    outputfile = parcels.ParticleFile(
+        f'parcels_releases_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
+        pset,
+        timedelta(hours=12),
+        chunks=(500 * 27 * 2, 365),
+    )  # timedelta was 6 before
+
+    pset.execute(
+        kernel,
+        runtime=timedelta(days=10),
+        dt=-timedelta(minutes=10),
+        output_file=outputfile,
+    )
+
+
+cluster = dask_jobqueue.SLURMCluster(
+    # Dask worker size
+    cores=4,
+    memory="16GB",
+    processes=1,  # Dask workers per job
+    # SLURM job script things
+    queue="base",
+    walltime="01:00:00",
+    # Dask worker network and temporary storage
+    interface="ib0",
+    local_directory="$TMPDIR",  # for spilling tmp data to disk
+    log_directory="slurm/",
+    worker_extra_args=["--lifetime", "55m", "--lifetime-stagger", "4m"],
 )
 
-outputfile = parcels.ParticleFile(
-    "../data/parcels_trajectories.zarr",
-    pset,
-    timedelta(hours=12),
-    chunks=(500 * 27 * 2 * 2, 365),
-)  # timedelta was 6 before
+client = dask.distributed.Client(cluster)
+cluster.adapt(
+    minimum=0,
+    maximum=50,
+)
 
-# Defining kernel
-adv = pset.Kernel(parcels.AdvectionRK4_3D)
-age = pset.Kernel(custom_kernel.age)
-sample = pset.Kernel(custom_kernel.sampling)
-sample_UV = pset.Kernel(custom_kernel.velocity_sampling)
-deleteparticle = pset.Kernel(custom_kernel.DeleteParticle_outside_domain_beached)
-
-kernels = adv + sample + sample_UV + age + deleteparticle
-
-pset.execute(
-    kernels,
-    runtime=timedelta(days=365 * 27),
-    dt=-timedelta(minutes=10),
-    output_file=outputfile,
+kernels = [
+    parcels.AdvectionRK4_3D,
+    custom_kernel.sampling,
+    custom_kernel.age,
+    custom_kernel.velocity_sampling,
+    custom_kernel.DeleteParticle_outside_domain_beached,
+]
+runs = db.from_sequence(release_times[:10]).map(
+    lambda t: run_parcels(
+        [t], lon, lat, depth, n_particles_per_release, fieldsetC, kernels=kernels
+    )
 )
