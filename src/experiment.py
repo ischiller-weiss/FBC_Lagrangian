@@ -64,7 +64,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-logger.add(f"../logs/experiment_{jobid}.log")
+logger.add(f"../logs/{jobid}/experiment.log")
 
 logger.info(f"SLURM Job ID: {jobid}")
 
@@ -165,11 +165,13 @@ def run_parcels(
     pset = parcels.ParticleSet.from_list(
         fieldset=fieldsetC,
         pclass=custom_kernel.SampleParticle,
-        lon=np.tile(lon_release, len(release_times)),
-        lat=np.tile(lat_release, len(release_times)),
-        depth=np.tile(depth_release, len(release_times)),
+        lon=np.tile(lon, len(release_times)),
+        lat=np.tile(lat, len(release_times)),
+        depth=np.tile(depth, len(release_times)),
         time=np.repeat(times, len(lon_release)),
     )
+
+    logger.info(f"Created {len(pset)} particles")
 
     pset.execute(kernels, runtime=1)
 
@@ -181,8 +183,8 @@ def run_parcels(
     land_indices = np.argwhere(t == 0).flatten()
     pset.remove_indices(land_indices)
     count = len(land_indices)
-    print(land_indices)
-    print(f"Removed {count} particles initialized on land")
+    logger.debug(land_indices)
+    logger.info(f"Removed {count} particles initialized on land")
 
     # build composite kernel
     kernel = pset.Kernel(kernels)
@@ -213,7 +215,7 @@ cluster = dask_jobqueue.SLURMCluster(
     # Dask worker network and temporary storage
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
-    log_directory="../logs/",
+    log_directory=f"../logs/{jobid}",
     worker_extra_args=["--lifetime", "55m", "--lifetime-stagger", "4m"],
 )
 
