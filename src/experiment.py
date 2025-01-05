@@ -17,30 +17,6 @@ import kernel as custom_kernel
 
 warnings.filterwarnings("ignore")
 
-
-# Set up dask cluster
-cluster = dask_jobqueue.SLURMCluster(
-    # Dask worker size
-    cores=4,
-    memory="16GB",
-    processes=1,  # Dask workers per job
-    # SLURM job script things
-    queue="base",
-    walltime="04:00:00",
-    # Dask worker network and temporary storage
-    interface="ib0",
-    local_directory="$TMPDIR",  # for spilling tmp data to disk
-    log_directory="slurm/",
-)
-
-client = dask.distributed.Client(cluster)
-cluster.adapt(minimum=5, maximum=5)
-
-print(client)
-print(
-    "To connect to the dask dashboard you might need to do port forwarding to the exact same node this script is running on, e.g. `ssh -L 8787:localhost:8787 this.node.com`"
-)
-
 # Set random seed
 np.random.seed(2345)
 
@@ -73,6 +49,29 @@ logging.info(f"Number of files: {len(ufiles)}")
 coords, variables, filenames, dimensions = custom_fieldset.create_mapping()
 
 if not os.path.exists("../fieldsetC_U.nc"):
+    # Set up dask cluster
+    cluster = dask_jobqueue.SLURMCluster(
+        # Dask worker size
+        cores=4,
+        memory="16GB",
+        processes=1,  # Dask workers per job
+        # SLURM job script things
+        queue="base",
+        walltime="04:00:00",
+        # Dask worker network and temporary storage
+        interface="ib0",
+        local_directory="$TMPDIR",  # for spilling tmp data to disk
+        log_directory="slurm/",
+    )
+
+    client = dask.distributed.Client(cluster)
+    cluster.adapt(minimum=5, maximum=5)
+
+    print(client)
+    print(
+        "To connect to the dask dashboard you might need to do port forwarding to the exact same node this script is running on, e.g. `ssh -L 8787:localhost:8787 this.node.com`"
+    )
+
     ds = custom_fieldset.create_dataset(ufiles, vfiles, wfiles, sfiles, tfiles)
 
     with warnings.catch_warnings():
