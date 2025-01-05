@@ -81,9 +81,9 @@ def create_dataset(ufiles, vfiles, wfiles, sfiles, tfiles):
     return ds
 
 
-def create_mapping():
+def create_mapping(ufiles, vfiles, wfiles, sfiles, tfiles):
     """Create mapping of parcel and model dimensions and variables"""
-    coords = xr.open_dataset("coords.nc")
+    coords = xr.open_dataset("/gxfs_work/geomar/smomw452/GLORYS12/coords.nc")
 
     variables = {
         "U": "vozocrtx",
@@ -162,7 +162,9 @@ if __name__ == "__main__":
     )
     logging.info(f"Number of files: {len(ufiles)}")
 
-    coords, variables, filenames, dimensions = create_mapping()
+    coords, variables, filenames, dimensions = create_mapping(
+        ufiles, vfiles, wfiles, sfiles, tfiles
+    )
     ds = create_dataset(ufiles, vfiles, wfiles, sfiles, tfiles)
 
     with warnings.catch_warnings():
