@@ -130,7 +130,7 @@ pset = parcels.ParticleSet.from_list(
 )
 
 outputfile = parcels.ParticleFile(
-    "../data/parcels_trajectories.zarr",
+    "../data/parcels_trajectories_parallel.zarr",
     pset,
     timedelta(hours=12),
     chunks=(500 * 27 * 2 * 2, 365),

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# SBATCH --job-name=parallel_parcels
-# SBATCH --ntasks=1273
-# SBATCH --cpus-per-task=1
-# SBATCH --mem-per-cpu=128G
-# SBATCH --time=30:00:00
-# SBATCH --partition=base
+#SBATCH --job-name=parallel_parcels
+#SBATCH --ntasks=4
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=128G
+#SBATCH --time=30:00:00
+#SBATCH --partition=base
+#SBATCH --output=../logs/parcels_%j.out
+#SBATCH --error=../logs/parcels_%j.out
 """
 Run a parcels simulation for each release time in parallel
 """
