@@ -255,7 +255,7 @@ kernels = [
     custom_kernel.velocity_sampling,
     custom_kernel.DeleteParticle_outside_domain_beached,
 ]
-runs = db.from_sequence(release_times).map(
+runs = db.from_sequence(release_times, npartitions=len(release_times)).map(
     lambda t: run_parcels(
         [t],
         lon,
