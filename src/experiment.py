@@ -50,7 +50,7 @@ coords, variables, filenames, dimensions = custom_fieldset.create_mapping(
     ufiles, vfiles, wfiles, sfiles, tfiles
 )
 
-if not os.path.exists("../fieldsetC_U.nc"):
+if not os.path.exists("../../fieldsetC_U.nc"):
     # Set up dask cluster
     cluster = dask_jobqueue.SLURMCluster(
         # Dask worker size
@@ -82,10 +82,12 @@ if not os.path.exists("../fieldsetC_U.nc"):
             ds, variables, dimensions, allow_time_extrapolation=False
         )
 
-    fieldsetC.write("../fieldsetC_")
+    fieldsetC.write("../../fieldsetC_")
 else:
     variables = {"U": "vozocrtx", "V": "vomecrty", "W": "W", "S": "S", "T": "T"}
-    fieldsetC = parcels.FieldSet.from_parcels("../fieldsetC_", extra_fields=variables)
+    fieldsetC = parcels.FieldSet.from_parcels(
+        "../../fieldsetC_", extra_fields=variables
+    )
 
 # Prepare particle release
 lon_release = lon  # longitude of release
