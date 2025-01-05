@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 import subprocess
+import time
 import warnings
 from datetime import timedelta
 
@@ -171,9 +172,19 @@ def run_parcels(
         time=np.repeat(times, len(lon_release)),
     )
 
-    logger.info(f"Created {len(pset)} particles")
+    print(f"Created {len(pset)} particles")
 
-    pset.execute(kernels, runtime=1)
+    tries = 0
+    while tries < 5:
+        try:
+            pset.execute(kernels, runtime=1)
+            tries = np.inf
+        except Exception as e:
+            print(f"Error in execution: {e}")
+            print("Retrying...")
+            tries += 1
+            time.sleep(10)
+            pass
 
     # Get land_indices of current release
     t = np.zeros(len(pset))
@@ -183,8 +194,8 @@ def run_parcels(
     land_indices = np.argwhere(t == 0).flatten()
     pset.remove_indices(land_indices)
     count = len(land_indices)
-    logger.debug(land_indices)
-    logger.info(f"Removed {count} particles initialized on land")
+    print(land_indices)
+    print(f"Removed {count} particles initialized on land")
 
     # build composite kernel
     kernel = pset.Kernel(kernels)
@@ -196,12 +207,22 @@ def run_parcels(
         chunks=(500 * 27 * 2, 365),
     )  # timedelta was 6 before
 
-    pset.execute(
-        kernel,
-        runtime=timedelta(days=365 * 27),
-        dt=-timedelta(minutes=10),
-        output_file=outputfile,
-    )
+    tries = 0
+    while tries < 5:
+        try:
+            pset.execute(
+                kernel,
+                runtime=timedelta(days=365 * 27),
+                dt=-timedelta(minutes=10),
+                output_file=outputfile,
+            )
+            tries = np.inf
+        except Exception as e:
+            print(f"Error in execution: {e}")
+            print("Retrying...")
+            tries += 1
+            time.sleep(10)
+            pass
 
 
 cluster = dask_jobqueue.SLURMCluster(
