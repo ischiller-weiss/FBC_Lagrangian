@@ -120,6 +120,11 @@ deleteparticle = pset.Kernel(custom_kernel.DeleteParticle_outside_domain_beached
 
 kernels = adv + sample + sample_UV + age + deleteparticle
 
+pset.execute(kernels, runtime=0)
+
+t = np.array([p.temp for p in pset])  # detect via temperature land particles
+pset.remove_indices(np.argwhere(t == 0).flatten())
+
 pset.execute(
     kernels,
     runtime=timedelta(days=365 * 27),
