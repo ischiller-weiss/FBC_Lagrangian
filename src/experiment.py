@@ -2,6 +2,7 @@
 import argparse
 import logging
 import os
+import subprocess
 import warnings
 from datetime import timedelta
 
@@ -13,11 +14,33 @@ import numpy as np
 import pandas as pd
 import parcels
 import tqdm as tqdm
+from loguru import logger
 
 import create_fieldset as custom_fieldset
 import kernel as custom_kernel
 
 warnings.filterwarnings("ignore")
+
+
+def get_slurm_jobid():
+    jobid = os.getenv("SLURM_JOB_ID")
+    if jobid is None:
+        try:
+            jobid = (
+                subprocess.check_output(
+                    ["squeue", "--noheader", "--format=%i", "-u", os.getenv("USER")]
+                )
+                .decode()
+                .strip()
+                .split("\n")[0]
+            )
+        except Exception as e:
+            logging.error(f"Failed to get SLURM job ID: {e}")
+            jobid = None
+    return jobid
+
+
+jobid = get_slurm_jobid()
 
 # Argument parser
 parser = argparse.ArgumentParser(description="Run particle tracking experiment.")
@@ -41,16 +64,21 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+logger.add(f"../logs/experiment_{jobid}.log")
+
+logger.info(f"SLURM Job ID: {jobid}")
+
 release_times = pd.date_range(
     start=args.release_start, end=args.release_end, freq=args.frequency
 )
 
 # Set random seed
-np.random.seed(2345)
+seed = 2345
+np.random.seed(seed)
 
 # Settings
 
-n_particles_per_release = 10_000
+n_particles_per_release = 1_000
 
 lon_bds = (-6.5, -2.5)
 lat_bds = (61.3, 60.3)
@@ -59,7 +87,7 @@ lon = np.random.uniform(*lon_bds, size=(n_particles_per_release,))
 lat = np.random.uniform(*lat_bds, size=(n_particles_per_release,))
 depth = np.random.uniform(650, 1100, size=(n_particles_per_release,))
 
-logging.info(f"Release times: {release_times}")
+logger.info(f"Release times: {release_times}")
 
 # Model filenames
 inpath = "/gxfs_work/geomar/smomw452/GLORYS12/"
@@ -70,7 +98,7 @@ min_ind = 2  # start from 1993!
 ufiles, vfiles, wfiles, sfiles, tfiles = custom_fieldset.get_files(
     inpath, min_ind=min_ind, max_ind=max_ind
 )
-logging.info(f"Number of files: {len(ufiles)}")
+logger.info(f"Number of files: {len(ufiles)}")
 
 coords, variables, filenames, dimensions = custom_fieldset.create_mapping(
     ufiles, vfiles, wfiles, sfiles, tfiles
@@ -131,23 +159,36 @@ def run_parcels(
     n_particles_per_release: int,
     fieldsetC: parcels.FieldSet,
     kernels: list,
+    seed: int,
 ):
+    times = [t.to_pydatetime() for t in release_times]
     pset = parcels.ParticleSet.from_list(
         fieldset=fieldsetC,
         pclass=custom_kernel.SampleParticle,
         lon=np.tile(lon_release, len(release_times)),
         lat=np.tile(lat_release, len(release_times)),
         depth=np.tile(depth_release, len(release_times)),
-        time=np.repeat(release_times, len(lon_release)),
+        time=np.repeat(times, len(lon_release)),
     )
 
+    pset.execute(kernels, runtime=1)
+
+    # Get land_indices of current release
+    t = np.zeros(len(pset))
+    ## detect via temperature land particles
+    for i, p in enumerate(pset):
+        t[i] = p.temp
+    land_indices = np.argwhere(t == 0).flatten()
+    pset.remove_indices(land_indices)
+    count = len(land_indices)
+    print(land_indices)
+    print(f"Removed {count} particles initialized on land")
+
     # build composite kernel
-    # pset_kernel = [pset.Kernel(k) for k in kernels]
-    # kernel = sum(pset_kernel)
     kernel = pset.Kernel(kernels)
 
     outputfile = parcels.ParticleFile(
-        f'parcels_releases_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
+        f'../data/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
         pset,
         timedelta(hours=12),
         chunks=(500 * 27 * 2, 365),
@@ -155,7 +196,7 @@ def run_parcels(
 
     pset.execute(
         kernel,
-        runtime=timedelta(days=10),
+        runtime=timedelta(days=365 * 27),
         dt=-timedelta(minutes=10),
         output_file=outputfile,
     )
@@ -172,13 +213,15 @@ cluster = dask_jobqueue.SLURMCluster(
     # Dask worker network and temporary storage
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
-    log_directory="slurm/",
+    log_directory="../logs/",
     worker_extra_args=["--lifetime", "55m", "--lifetime-stagger", "4m"],
 )
 
 client = dask.distributed.Client(cluster)
+logger.info(client)
+
 cluster.adapt(
-    minimum=0,
+    minimum=1,
     maximum=50,
 )
 
@@ -189,8 +232,17 @@ kernels = [
     custom_kernel.velocity_sampling,
     custom_kernel.DeleteParticle_outside_domain_beached,
 ]
-runs = db.from_sequence(release_times[:10]).map(
+runs = db.from_sequence(release_times).map(
     lambda t: run_parcels(
-        [t], lon, lat, depth, n_particles_per_release, fieldsetC, kernels=kernels
+        [t],
+        lon,
+        lat,
+        depth,
+        n_particles_per_release,
+        fieldsetC,
+        kernels=kernels,
+        seed=seed,
     )
 )
+
+runs.compute()
