@@ -46,7 +46,9 @@ ufiles, vfiles, wfiles, sfiles, tfiles = custom_fieldset.get_files(
 )
 logging.info(f"Number of files: {len(ufiles)}")
 
-coords, variables, filenames, dimensions = custom_fieldset.create_mapping()
+coords, variables, filenames, dimensions = custom_fieldset.create_mapping(
+    ufiles, vfiles, wfiles, sfiles, tfiles
+)
 
 if not os.path.exists("../fieldsetC_U.nc"):
     # Set up dask cluster
