@@ -8,5 +8,6 @@
 #SBATCH --partition=base
 #SBATCH --qos=long
 
-source activate ~/miniconda3/envs/py3_std_maps_2023-11-20
+source ~/.bashrc
+conda activate ~/miniconda3/envs/py3_std_maps_2023-11-20
 python experiment.py
