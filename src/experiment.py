@@ -50,7 +50,7 @@ coords, variables, filenames, dimensions = custom_fieldset.create_mapping(
     ufiles, vfiles, wfiles, sfiles, tfiles
 )
 
-if not os.path.exists("../../fieldsetC_U.nc"):
+if not os.path.exists("/gxfs_work/geomar/smomw452/GLORYS12/fieldsetC_U.nc"):
     # Set up dask cluster
     cluster = dask_jobqueue.SLURMCluster(
         # Dask worker size
@@ -82,11 +82,11 @@ if not os.path.exists("../../fieldsetC_U.nc"):
             ds, variables, dimensions, allow_time_extrapolation=False
         )
 
-    fieldsetC.write("../../fieldsetC_")
+    fieldsetC.write("/gxfs_work/geomar/smomw452/GLORYS12/fieldsetC_")
 else:
     variables = {"U": "vozocrtx", "V": "vomecrty", "W": "W", "S": "S", "T": "T"}
     fieldsetC = parcels.FieldSet.from_parcels(
-        "../../fieldsetC_", extra_fields=variables
+        "/gxfs_work/geomar/smomw452/GLORYS12/fieldsetC_", extra_fields=variables
     )
 
 # Prepare particle release
@@ -104,8 +104,10 @@ pset = parcels.ParticleSet.from_list(
     time=np.repeat(release_times, len(lon_release)),
 )
 
+print(f"Number of particles: {len(pset)}")
+
 outputfile = parcels.ParticleFile(
-    "../data/parcels_trajectories.zarr",
+    "../data/test_trajectories.zarr",
     pset,
     timedelta(hours=12),
     chunks=(500 * 27 * 2 * 2, 365),
@@ -120,13 +122,53 @@ deleteparticle = pset.Kernel(custom_kernel.DeleteParticle_outside_domain_beached
 
 kernels = adv + sample + sample_UV + age + deleteparticle
 
-pset.execute(kernels, runtime=0)
+# Run simulation for one time step
+# to find particles that are on land.
+# Initially all particle's temp is set to -100
+# and in next timestep actual values are loaded
+# where parcels on land will have temp == 0.
+pset.execute(kernels, runtime=1)
 
-t = np.array([p.temp for p in pset])  # detect via temperature land particles
+# Get land_indices of current release
+t = np.zeros(len(pset))
+## detect via temperature land particles
+for i, p in enumerate(pset):
+    t[i] = p.temp
 land_indices = np.argwhere(t == 0).flatten()
 pset.remove_indices(land_indices)
-count = land_indices.sum()
-logging.info(f"Removed {count} particles initialized on land")
+count = len(land_indices)
+print(land_indices)
+print(f"Removed {count} particles initialized on land")
+
+# Get land_indices of future releases
+# NOTE: this assumes future releases will be at the same locations
+
+nb_releases = len(release_times)
+all_land_ind = np.tile(land_indices, nb_releases) * np.repeat(
+    np.arange(1, nb_releases + 1), len(land_indices)
+)
+# pset.remove_indices(all_land_ind)
+# np.set_printoptions(threshold=np.inf)
+print(all_land_ind)
+for i in range(1, nb_releases):
+    print(
+        pset[land_indices[0]].lon,
+        pset[land_indices[0]].lat,
+        pset[land_indices[0]].depth,
+    )
+    print(
+        pset[land_indices[0] + n_particles_per_release].lon,
+        pset[land_indices[0] + n_particles_per_release].lat,
+        pset[land_indices[0] + n_particles_per_release].depth,
+    )
+    land_indices += n_particles_per_release
+    pset.remove_indices(land_indices)
+    count = len(land_indices)
+    print(
+        f"{count} additional particles have been removed from the release at {release_times[i]}"
+    )
+    print(land_indices)
+
 
 pset.execute(
     kernels,
