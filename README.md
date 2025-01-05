@@ -23,4 +23,4 @@ GLORYS12 Copernicus Reanalysis (1/12 degree) on the native C-grid.
 
 ## Experiment description
 
-Release 10,000 particles every 5 days from 2020-05-01 to 2003-01-01 from the Faroe Bank Channel (S-section) [Larsen et al. 2024](https://doi.org/10.1029/2024GL110097) over 600 - 1100m depth range. Particles are backtracked in time for 27 years.
+Release 10,000 particles every 5 days from 2020-05-01 to 2003-01-01 from the Faroe Bank Channel (S-section) ([Larsen et al., 2024](https://doi.org/10.1029/2024GL110097)) over 600 - 1100m depth range. Particles are backtracked in time for 27 years.
