@@ -232,9 +232,11 @@ def run_parcels(
 
 cluster = dask_jobqueue.SLURMCluster(
     # Dask worker size
-    cores=32,
-    n_workers=32,
-    memory="180GB",
+    cores=1,
+    processes=1,
+    job_cpu=1,
+    n_workers=1,
+    memory="32GB",
     # SLURM job script things
     queue="base",
     walltime="1-12:00:00",
