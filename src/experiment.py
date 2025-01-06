@@ -227,17 +227,17 @@ def run_parcels(
 
 cluster = dask_jobqueue.SLURMCluster(
     # Dask worker size
-    cores=4,
-    memory="16GB",
-    processes=1,  # Dask workers per job
+    cores=32,
+    n_workers=32,
+    memory="180GB",
     # SLURM job script things
     queue="base",
-    walltime="01:00:00",
+    walltime="1-12:00:00",
     # Dask worker network and temporary storage
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
     log_directory=f"../logs/{jobid}",
-    worker_extra_args=["--lifetime", "55m", "--lifetime-stagger", "4m"],
+    worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"],
 )
 
 client = dask.distributed.Client(cluster)
@@ -245,7 +245,7 @@ logger.info(client)
 
 cluster.adapt(
     minimum=1,
-    maximum=50,
+    maximum=20,
 )
 
 kernels = [
