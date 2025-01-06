@@ -252,7 +252,7 @@ logger.info(client)
 
 cluster.adapt(
     minimum=1,
-    maximum=20,
+    maximum=100,
 )
 
 kernels = [
