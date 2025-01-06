@@ -164,6 +164,7 @@ def run_parcels(
     seed: int,
 ):
     times = [t.to_pydatetime() for t in release_times]
+    print(f"Running parcels for release times: {times}")
     pset = parcels.ParticleSet.from_list(
         fieldset=fieldsetC,
         pclass=custom_kernel.SampleParticle,
