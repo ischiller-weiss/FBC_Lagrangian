@@ -1,5 +1,6 @@
 #!/gxfs_home/geomar/smomw452//miniconda3/envs/py3_std_maps_2023-11-20/bin/python
 import argparse
+import datetime
 import logging
 import os
 import subprocess
@@ -134,14 +135,14 @@ if not os.path.exists("../../fieldsetC_U.nc"):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", parcels.FileWarning)
         fieldsetC = parcels.FieldSet.from_nemo(
-            ds, variables, dimensions, allow_time_extrapolation=False
+            ds, variables, dimensions, allow_time_extrapolation=True
         )
 
     fieldsetC.write("../../fieldsetC_")
 else:
     variables = {"U": "vozocrtx", "V": "vomecrty", "W": "W", "S": "S", "T": "T"}
     fieldsetC = parcels.FieldSet.from_parcels(
-        "../../fieldsetC_", extra_fields=variables
+        "../../fieldsetC_", extra_fields=variables, allow_time_extrapolation=True
     )
 
 # Prepare particle release
@@ -207,12 +208,15 @@ def run_parcels(
         chunks=(500 * 27 * 2, 365),
     )  # timedelta was 6 before
 
+    runtime = np.min(release_times) - datetime.datetime(1993, 1, 2)
+    print(f"Runtime: {runtime}")
+
     tries = 0
     while tries < 5:
         try:
             pset.execute(
                 kernel,
-                runtime=timedelta(days=365 * 27),
+                runtime=runtime,
                 dt=-timedelta(minutes=10),
                 output_file=outputfile,
             )
