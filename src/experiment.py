@@ -106,43 +106,101 @@ coords, variables, filenames, dimensions = custom_fieldset.create_mapping(
     ufiles, vfiles, wfiles, sfiles, tfiles
 )
 
-if not os.path.exists("../../fieldsetC_U.nc"):
-    # Set up dask cluster
-    cluster = dask_jobqueue.SLURMCluster(
-        # Dask worker size
-        cores=4,
-        memory="16GB",
-        processes=1,  # Dask workers per job
-        # SLURM job script things
-        queue="base",
-        walltime="04:00:00",
-        # Dask worker network and temporary storage
-        interface="ib0",
-        local_directory="$TMPDIR",  # for spilling tmp data to disk
-        log_directory="slurm/",
-    )
+# if not os.path.exists("../../fieldsetC_U.nc"):
+#     # Set up dask cluster
+#     cluster = dask_jobqueue.SLURMCluster(
+#         # Dask worker size
+#         cores=4,
+#         memory="16GB",
+#         processes=1,  # Dask workers per job
+#         # SLURM job script things
+#         queue="base",
+#         walltime="04:00:00",
+#         # Dask worker network and temporary storage
+#         interface="ib0",
+#         local_directory="$TMPDIR",  # for spilling tmp data to disk
+#         log_directory="slurm/",
+#     )
 
-    client = dask.distributed.Client(cluster)
-    cluster.adapt(minimum=5, maximum=5)
+#     client = dask.distributed.Client(cluster)
+#     cluster.adapt(minimum=5, maximum=5)
 
-    print(client)
-    print(
-        "To connect to the dask dashboard you might need to do port forwarding to the exact same node this script is running on, e.g. `ssh -L 8787:localhost:8787 this.node.com`"
-    )
+#     print(client)
+#     print(
+#         "To connect to the dask dashboard you might need to do port forwarding to the exact same node this script is running on, e.g. `ssh -L 8787:localhost:8787 this.node.com`"
+#     )
 
-    ds = custom_fieldset.create_dataset(ufiles, vfiles, wfiles, sfiles, tfiles)
+#     ds = custom_fieldset.create_dataset(ufiles, vfiles, wfiles, sfiles, tfiles)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", parcels.FileWarning)
-        fieldsetC = parcels.FieldSet.from_nemo(
-            ds, variables, dimensions, allow_time_extrapolation=True
-        )
+#     with warnings.catch_warnings():
+#         warnings.simplefilter("ignore", parcels.FileWarning)
+#         fieldsetC = parcels.FieldSet.from_nemo(
+#             ds, variables, dimensions, allow_time_extrapolation=True
+#         )
 
-    fieldsetC.write("../../fieldsetC_")
-else:
-    variables = {"U": "vozocrtx", "V": "vomecrty", "W": "W", "S": "S", "T": "T"}
-    fieldsetC = parcels.FieldSet.from_parcels(
-        "../../fieldsetC_", extra_fields=variables, allow_time_extrapolation=True
+#     fieldsetC.write("../../fieldsetC_")
+# else:
+#     variables = {"U": "vozocrtx", "V": "vomecrty", "W": "W", "S": "S", "T": "T"}
+#     fieldsetC = parcels.FieldSet.from_parcels(
+#         "../../fieldsetC_", extra_fields=variables, allow_time_extrapolation=True
+#     )
+
+timestamps = np.arange(
+    np.datetime64(ufiles[0][-13:-3]),
+    np.datetime64(ufiles[-1][-13:-3])
+    + np.timedelta64(1, "h"),  # adding an hour to include the last day
+    np.timedelta64(1, "D"),
+)
+assert (
+    len(ufiles) == len(vfiles) == len(timestamps)
+), "Different number of U, V files and timestamps"
+timestamps = [[t] for t in timestamps]  # convert to a list of lists
+
+variables = {
+    "U": "vozocrtx",
+    "V": "vomecrty",
+    "W": "vovecrtz",
+    "S": "vosaline",
+    "T": "votemper",
+}
+
+filenames = {
+    "U": {
+        "lon": wfiles[0],
+        "lat": wfiles[0],
+        "depth": wfiles[0],
+        "data": ufiles,
+    },  # must use same everywhere w,files. but w depth is 0, northeast corner of T grid is lid
+    "V": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": vfiles},
+    "W": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": wfiles},
+    "S": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": sfiles},
+    "T": {"lon": wfiles[0], "lat": wfiles[0], "depth": wfiles[0], "data": tfiles},
+}
+
+
+c_grid_dimensions = {
+    "lon": "nav_lon",
+    "lat": "nav_lat",
+    "depth": "depthw",
+    "time": "time_counter",
+}
+
+dimensions = {
+    "U": c_grid_dimensions,
+    "V": c_grid_dimensions,
+    "W": c_grid_dimensions,
+    "S": c_grid_dimensions,
+    "T": c_grid_dimensions,
+}
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", parcels.FileWarning)
+    fieldsetC = parcels.FieldSet.from_nemo(
+        filenames,
+        variables,
+        dimensions,
+        timestamps=timestamps,
+        allow_time_extrapolation=True,
     )
 
 # Prepare particle release
