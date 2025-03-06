@@ -13,9 +13,8 @@ import subprocess
 
 import pandas as pd
 import tqdm as tqdm
-import datetime as dt
 
-release_times = pd.date_range(start="2003-01-01", end="2020-06-03", freq="5D", unit="s")
+release_times = pd.date_range(start="1993-01-01", end="1995-01-01", freq="5D", unit="s")
 
 for release_time in tqdm.tqdm(release_times):
     subprocess.run(
@@ -28,7 +27,7 @@ for release_time in tqdm.tqdm(release_times):
             "--release_start",
             release_time.strftime("%Y-%m-%dT%H:%M:%S"),
             "--release_end",
-            (release_time + dt.timedelta(days=500)).strftime("%Y-%m-%dT%H:%M:%S"),
+            release_time.strftime("%Y-%m-%dT%H:%M:%S"),
             "--frequency",
             "5D",
         ]
