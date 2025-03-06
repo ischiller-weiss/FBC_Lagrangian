@@ -267,7 +267,7 @@ def run_parcels(
         chunks=(500 * 27 * 2, 365),
     )  # timedelta was 6 before
 
-    runtime = np.min(release_times) - datetime.datetime(1993, 1, 2)
+    runtime = timedelta(days=600)
     print(f"Runtime: {runtime}")
 
     tries = 0
