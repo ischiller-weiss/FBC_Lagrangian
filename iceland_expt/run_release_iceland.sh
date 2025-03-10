@@ -10,4 +10,4 @@
 source ~/.bashrc
 conda activate ~/miniconda3/envs/py3_std_maps_2023-11-20
 echo "Running parcels"
-python run_releases_parallel_iceland_near_surface.py
+python release_iceland_near_surface.py
