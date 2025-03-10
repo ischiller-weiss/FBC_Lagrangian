@@ -1,6 +1,5 @@
 #!/gxfs_home/geomar/smomw452//miniconda3/envs/py3_std_maps_2023-11-20/bin/python
 import argparse
-import datetime
 import logging
 import os
 import subprocess
@@ -227,7 +226,7 @@ def run_parcels(
         pset,
         timedelta(hours=24),
         chunks=(len(pset), 1),
-    )  
+    )
 
     runtime = timedelta(days=600)
     print(f"Runtime: {runtime}")
@@ -264,8 +263,7 @@ cluster = dask_jobqueue.SLURMCluster(
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
     log_directory=f"logs/{jobid}",
-    worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"],
-    job_script_prologue=["module load python/3.8"]
+    worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"]
 )
 
 client = dask.distributed.Client(cluster)
