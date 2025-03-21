@@ -79,21 +79,17 @@ for f, filelist in enumerate(tqdm.tqdm(sublists)):
         consolidated=True,
     )
 
-# dss = []
-# for file in tqdm.tqdm(level1_files):
-#     ds = xr.open_dataset(file, engine='zarr')
-#     ds = preprocess(ds)
-#     dss.append(ds)
+ds = xr.open_mfdataset(
+    'data/level2/with_time_parcels_releases_seed-2345_0*.zarr',
+    engine="zarr",
+    combine="nested",
+    concat_dim="trajectory",
+)
 
-# ds_merged = xr.concat(dss, dim='trajectory')
 
-# # ds = xr.open_mfdataset(
-# #     level1_files[::-1],
-# #     engine="zarr",
-# #     preprocess=preprocess,
-# #     combine="nested",
-# #     decode_times=False,
-# #     parallel=True,
-# # )
+# Saving the rechunked output
+for var in ds.data_vars:
+    del ds[var].encoding["chunks"]
+    del ds[var].encoding['preferred_chunks']
 
-# ds_merged.to_zarr("data/level2/with_time_parcels_releases_seed-2345.zarr", mode="w", consolidated=True)
+ds.chunk({'trajectory':391, 'time': 20025}).to_zarr("data/level2/retry_with_time_parcels_releases_seed-2345.zarr", mode="w", consolidated=True)
