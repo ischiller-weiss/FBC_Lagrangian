@@ -263,7 +263,7 @@ cluster = dask_jobqueue.SLURMCluster(
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
     log_directory=f"logs/{jobid}",
-    worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"]
+    worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"],
 )
 
 client = dask.distributed.Client(cluster)
