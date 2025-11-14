@@ -49,13 +49,13 @@ parser = argparse.ArgumentParser(description="Run particle tracking experiment."
 parser.add_argument(
     "--release_start",
     type=str,
-    default="2003-01-01T00:00:00",
+    default="1995-01-01T00:00:00",
     help="Start date for particle release (format: YYYYMM-DDTHH:MM:SS)",
 )
 parser.add_argument(
     "--release_end",
     type=str,
-    default="2020-06-03T00:00:00",
+    default="2002-12-31T00:00:00",
     help="End date for particle release (format: YYYYMM-DDTHH:MM:SS)",
 )
 parser.add_argument(
@@ -92,7 +92,7 @@ depth = np.random.uniform(650, 1100, size=(n_particles_per_release,))
 logger.info(f"Release times: {release_times}")
 
 # Model filenames
-inpath = "/gxfs_work/geomar/smomw452/GLORYS12/"
+inpath = "/gxfs_work/geomar/smomw452/GLORYS12/Data/"
 
 max_ind = None
 min_ind = 2  # start from 1993!
