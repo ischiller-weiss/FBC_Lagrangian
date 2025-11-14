@@ -8,24 +8,66 @@ import dask_jobqueue
 import tqdm
 import xarray as xr
 
+# cluster = dask_jobqueue.SLURMCluster(
+#     # Dask worker size
+#     cores=4,
+#     memory="16GB",
+#     processes=1,  # Dask workers per job
+#     # SLURM job script things
+#     queue="base",
+#     walltime="00:30:00",
+#     # Dask worker network and temporary storage
+#     interface="ib0",
+#     local_directory="$TMPDIR",  # for spilling tmp data to disk
+#     log_directory="slurm/",
+# )
+
+# cluster = dask.distributed.LocalCluster()
+
+# client = dask.distributed.Client(cluster)
+# client
+
 cluster = dask_jobqueue.SLURMCluster(
     # Dask worker size
     cores=4,
     memory="16GB",
     processes=1,  # Dask workers per job
     # SLURM job script things
-    queue="base",
-    walltime="00:30:00",
+    queue="highmem",
+    walltime="04:00:00",
     # Dask worker network and temporary storage
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
     log_directory="slurm/",
 )
 
-cluster = dask.distributed.LocalCluster()
-
 client = dask.distributed.Client(cluster)
+
+cluster.scale(jobs=4)  # 15
 client
+
+# def main():
+#     # Initialize the Dask cluster
+#     cluster = dask_jobqueue.SLURMCluster(
+#         # Dask worker size
+#         cores=4,
+#         memory="16GB",
+#         processes=1,  # Dask workers per job
+#         # SLURM job script things
+#         queue="base",
+#         walltime="00:30:00",
+#         # Dask worker network and temporary storage
+#         interface="ib0",
+#         local_directory="$TMPDIR",  # for spilling tmp data to disk
+#         log_directory="slurm/",
+#     )
+
+#     # Create a Dask client
+#     client = dask.distributed.Client(cluster)
+#     print(client)  # Optionally print the client information
+
+# if __name__ == '__main__':
+#     main()
 
 
 global trj_idx
