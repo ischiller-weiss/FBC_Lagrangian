@@ -128,4 +128,8 @@ ds = xr.open_mfdataset(
 # Saving the rechunked output
 
 
-ds.to_zarr("data/level2/parcels_releases_seed-2345.zarr", mode="w", consolidated=True)
+ds.to_zarr(
+    inpath + "level2/extended_parcels_releases_seed-2345.zarr",
+    mode="w",
+    consolidated=True,
+)
