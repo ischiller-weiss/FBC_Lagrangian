@@ -20,6 +20,7 @@ from loguru import logger
 
 import create_fieldset as custom_fieldset
 import kernel as custom_kernel
+from haversine import interpolate_coordinates
 
 warnings.filterwarnings("ignore")
 
@@ -64,6 +65,13 @@ parser.add_argument(
     default="5D",
     help="Frequency of particle release",
 )
+parser.add_argument(
+    "--seeding",
+    type=str,
+    default="uniform",
+    choices=["random", "uniform"],
+    help="Seeding strategy for particle release",
+)
 args = parser.parse_args()
 
 logger.add(f"../logs/{jobid}/experiment.log")
@@ -82,12 +90,36 @@ np.random.seed(seed)
 
 n_particles_per_release = 1_000
 
-lon_bds = (-6.5, -2.5)
-lat_bds = (61.3, 60.3)
+lon_bds = (-5.5, -3.5)
+lat_bds = (61.05, 60.55)
+start_depth = 600
+end_depth = 1150
 
-lon = np.random.uniform(*lon_bds, size=(n_particles_per_release,))
-lat = np.random.uniform(*lat_bds, size=(n_particles_per_release,))
-depth = np.random.uniform(650, 1100, size=(n_particles_per_release,))
+if args.seeding == "random":
+    lon = np.random.uniform(*lon_bds, size=(n_particles_per_release,))
+    lat = np.random.uniform(*lat_bds, size=(n_particles_per_release,))
+    depth = np.random.uniform(start_depth, end_depth, size=(n_particles_per_release,))
+elif args.seeding == "uniform":
+    along_cross_section_points = 245
+    number_of_depth_levels = 111
+    depth_levels = np.linspace(start_depth, end_depth, number_of_depth_levels)
+    depth = np.transpose(
+        np.tile(depth_levels, (along_cross_section_points, 1))
+    ).flatten()
+    spacing_km, evenly_spaced_coords = interpolate_coordinates(
+        [lat_bds[0], lon_bds[0]], [lat_bds[1], lon_bds[1]], along_cross_section_points
+    )
+    lat_pt = np.array([coord[0] for coord in evenly_spaced_coords])
+    lon_pt = np.array([coord[1] for coord in evenly_spaced_coords])
+    lat = np.tile(lat_pt, (number_of_depth_levels, 1)).flatten()
+    lon = np.tile(lon_pt, (number_of_depth_levels, 1)).flatten()
+    logger.info(f"Spacing between particles along cross-section: {spacing_km:.2f} km")
+    logger.info(
+        f"Vertical spacing between depth levels given {number_of_depth_levels} levels: {(end_depth - start_depth) / (number_of_depth_levels - 1):.2f} m"
+    )
+    logger.info(
+        f"Total number of particles per release: {along_cross_section_points * number_of_depth_levels}"
+    )
 
 logger.info(f"Release times: {release_times}")
 
@@ -95,7 +127,7 @@ logger.info(f"Release times: {release_times}")
 inpath = "/gxfs_work/geomar/smomw452/GLORYS12/Data/"
 
 max_ind = None
-min_ind = 2  # start from 1993!
+min_ind = None
 
 ufiles, vfiles, wfiles, sfiles, tfiles = custom_fieldset.get_files(
     inpath, min_ind=min_ind, max_ind=max_ind
@@ -261,11 +293,11 @@ def run_parcels(
     kernel = pset.Kernel(kernels)
 
     outputfile = parcels.ParticleFile(
-        f'../data/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
+        f'../data/uniform_release_S/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
         pset,
-        timedelta(hours=12),
-        chunks=(500 * 27 * 2, 365),
-    )  # timedelta was 6 before
+        timedelta(days=1),
+        chunks=(len(pset), 31 * 365),
+    )  # 31 years for max backtracking expt, 2024 - 1994, 365*output freq
 
     runtime = np.min(release_times) - datetime.datetime(1993, 1, 2)
     print(f"Runtime: {runtime}")
@@ -288,6 +320,27 @@ def run_parcels(
             pass
 
 
+kernels = [
+    parcels.AdvectionRK4_3D,
+    custom_kernel.sampling,
+    custom_kernel.age,
+    custom_kernel.velocity_sampling,
+    custom_kernel.TotalDistance,
+    custom_kernel.DeleteParticle_outside_domain_beached,
+]
+runs = db.from_sequence(release_times, npartitions=len(release_times)).map(
+    lambda t: run_parcels(
+        [t],
+        lon,
+        lat,
+        depth,
+        n_particles_per_release,
+        fieldsetC,
+        kernels=kernels,
+        seed=seed,
+    )
+)
+
 cluster = dask_jobqueue.SLURMCluster(
     # Dask worker size
     cores=1,
@@ -302,6 +355,11 @@ cluster = dask_jobqueue.SLURMCluster(
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
     log_directory=f"../logs/{jobid}",
+    job_extra_directives=[
+        f"--error=../logs/{jobid}/dask-worker-{jobid}.%N.log",
+        f"--output=../logs/{jobid}/dask-worker-{jobid}.%N.log",
+        "--exclude=nesh-clk414,nesh-clk352,nesh-clk502",
+    ],
     worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"],
 )
 
@@ -310,27 +368,7 @@ logger.info(client)
 
 cluster.adapt(
     minimum=1,
-    maximum=100,
-)
-
-kernels = [
-    parcels.AdvectionRK4_3D,
-    custom_kernel.sampling,
-    custom_kernel.age,
-    custom_kernel.velocity_sampling,
-    custom_kernel.DeleteParticle_outside_domain_beached,
-]
-runs = db.from_sequence(release_times, npartitions=len(release_times)).map(
-    lambda t: run_parcels(
-        [t],
-        lon,
-        lat,
-        depth,
-        n_particles_per_release,
-        fieldsetC,
-        kernels=kernels,
-        seed=seed,
-    )
+    maximum=1,
 )
 
 runs.compute()
