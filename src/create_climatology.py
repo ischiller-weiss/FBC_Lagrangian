@@ -115,7 +115,7 @@ def calculate_daily_climatology(timeseries, variable, output_path="./data"):
 
     # Save the compact 365-day climatology to zarr
     os.makedirs(output_path, exist_ok=True)
-    output_file = f"{output_path}/{variable}_daily_climatology_365days_land_mask.zarr"
+    output_file = f"{output_path}/{variable}_daily_climatology_365days.zarr"
     print(f"Saving {variable} climatology to {output_file}...")
     climatology_per_doy.to_zarr(output_file)
     print(f"✓ Saved {variable} climatology")
@@ -157,7 +157,7 @@ def main(n_workers=None, threads_per_worker=1, memory_limit="20GB"):
         results = {}
 
         # Process both temperature and salinity
-        for variable in ["T", "S"]:
+        for variable in ["S"]:
             print(f"\n{'='*60}")
             print(f"Processing {variable}")
             print("=" * 60)
