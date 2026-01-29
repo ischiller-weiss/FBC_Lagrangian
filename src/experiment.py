@@ -286,6 +286,14 @@ def run_parcels(
     output_dir: str,
 ):
     times = [t.to_pydatetime() for t in release_times]
+    output_path = f'{output_dir}/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr'
+    done_marker = output_path + ".done"
+
+    # Skip if computation already completed successfully
+    if os.path.exists(done_marker):
+        print(f"Computation already completed for {output_path}, skipping")
+        return
+
     print(f"Running parcels for release times: {times}")
     pset = parcels.ParticleSet.from_list(
         fieldset=fieldsetC,
@@ -325,7 +333,7 @@ def run_parcels(
     kernel = pset.Kernel(kernels)
 
     outputfile = parcels.ParticleFile(
-        f'{output_dir}/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
+        output_path,
         pset,
         timedelta(days=1),
         chunks=(len(pset), 31 * 365),
@@ -350,6 +358,10 @@ def run_parcels(
             tries += 1
             time.sleep(10)
             pass
+
+    # Write completion marker file to indicate successful execution
+    with open(done_marker, "w") as f:
+        f.write(f"Completed at {datetime.datetime.now()}\n")
 
 
 kernels = [
