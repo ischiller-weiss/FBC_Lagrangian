@@ -74,6 +74,12 @@ parser.add_argument(
     choices=["random", "uniform"],
     help="Seeding strategy for particle release",
 )
+parser.add_argument(
+    "--output_dir",
+    type=str,
+    default="../data",
+    help="Output directory for particle release files",
+)
 args = parser.parse_args()
 
 logger.add(f"../logs/{jobid}/experiment.log")
@@ -277,6 +283,7 @@ def run_parcels(
     fieldsetC: parcels.FieldSet,
     kernels: list,
     seed: int,
+    output_dir: str,
 ):
     times = [t.to_pydatetime() for t in release_times]
     print(f"Running parcels for release times: {times}")
@@ -318,7 +325,7 @@ def run_parcels(
     kernel = pset.Kernel(kernels)
 
     outputfile = parcels.ParticleFile(
-        f'../data/uniform_release_S/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
+        f'{output_dir}/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
         pset,
         timedelta(days=1),
         chunks=(len(pset), 31 * 365),
@@ -366,6 +373,7 @@ runs = db.from_sequence(release_times, npartitions=len(release_times)).map(
         fieldsetC,
         kernels=kernels,
         seed=seed,
+        output_dir=args.output_dir,
     )
 )
 

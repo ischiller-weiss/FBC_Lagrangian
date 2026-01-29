@@ -61,7 +61,7 @@ def SampleTSAnomaly(particle, fieldset, time):
     T_model = fieldset.T[time, particle.depth, particle.lat, particle.lon]
     T_clim_model = fieldset.Tclim[time, particle.depth, particle.lat, particle.lon]
     S_model = fieldset.S[time, particle.depth, particle.lat, particle.lon]
-    S_clim_model = fieldset.Sclim[time, particle.depth, particle.lat]
+    S_clim_model = fieldset.Sclim[time, particle.depth, particle.lat, particle.lon]
 
     particle.temp = T_model
     particle.temp_anom = T_model - T_clim_model
