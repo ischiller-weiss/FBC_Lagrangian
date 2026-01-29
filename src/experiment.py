@@ -223,9 +223,9 @@ ds_tfile = xr.open_dataset(tfiles[0])
 nav_lat = ds_tfile["nav_lat"]
 nav_lon = ds_tfile["nav_lon"]
 
-Tclim = Tclim.assign_coords({"nav_lat": nav_lat, "nav_lon": nav_lon})
+Tclim = Tclim.assign_coords({"nav_lat": nav_lat, "nav_lon": nav_lon}).astype(np.float32)
 
-Sclim = Sclim.assign_coords({"nav_lat": nav_lat, "nav_lon": nav_lon})
+Sclim = Sclim.assign_coords({"nav_lat": nav_lat, "nav_lon": nav_lon}).astype(np.float32)
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", parcels.FileWarning)
