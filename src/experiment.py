@@ -291,10 +291,10 @@ def run_parcels(
 
     # Skip if computation already completed successfully
     if os.path.exists(done_marker):
-        print(f"Computation already completed for {output_path}, skipping")
+        logging.info(f"Computation already completed for {output_path}, skipping")
         return
 
-    print(f"Running parcels for release times: {times}")
+    logging.info(f"Running parcels for release times: {times}")
     pset = parcels.ParticleSet.from_list(
         fieldset=fieldsetC,
         pclass=custom_kernel.SampleParticle,
@@ -304,7 +304,7 @@ def run_parcels(
         time=np.repeat(times, len(lon_release)),
     )
 
-    print(f"Created {len(pset)} particles")
+    logging.info(f"Created {len(pset)} particles")
 
     tries = 0
     while tries < 5:
@@ -312,8 +312,8 @@ def run_parcels(
             pset.execute(kernels, runtime=1)
             tries = np.inf
         except Exception as e:
-            print(f"Error in execution: {e}")
-            print("Retrying...")
+            logging.error(f"Error in execution: {e}")
+            logging.info("Retrying...")
             tries += 1
             time.sleep(10)
             pass
@@ -326,8 +326,8 @@ def run_parcels(
     land_indices = np.argwhere(t == 0).flatten()
     pset.remove_indices(land_indices)
     count = len(land_indices)
-    print(land_indices)
-    print(f"Removed {count} particles initialized on land")
+    logging.info(land_indices)
+    logging.info(f"Removed {count} particles initialized on land")
 
     # build composite kernel
     kernel = pset.Kernel(kernels)
@@ -340,7 +340,7 @@ def run_parcels(
     )  # 31 years for max backtracking expt, 2024 - 1994, 365*output freq
 
     runtime = np.min(release_times) - datetime.datetime(1993, 1, 2)
-    print(f"Runtime: {runtime}")
+    logging.info(f"Runtime: {runtime}")
 
     tries = 0
     while tries < 5:
@@ -353,8 +353,8 @@ def run_parcels(
             )
             tries = np.inf
         except Exception as e:
-            print(f"Error in execution: {e}")
-            print("Retrying...")
+            logging.error(f"Error in execution: {e}")
+            logging.info("Retrying...")
             tries += 1
             time.sleep(10)
             pass
