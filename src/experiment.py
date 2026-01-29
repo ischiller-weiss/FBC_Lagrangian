@@ -16,7 +16,9 @@ import numpy as np
 import pandas as pd
 import parcels
 import tqdm as tqdm
+import xarray as xr
 from loguru import logger
+from parcels import Field
 
 import create_fieldset as custom_fieldset
 import kernel as custom_kernel
@@ -186,6 +188,39 @@ dimensions = {
     "T": c_grid_dimensions,
 }
 
+# add in climatology
+
+refs_json_path_T = "/gxfs_work/geomar/smomw452/GLORYS12/schillerweiss_2025/data/climatology_refs_T.json"
+
+ds_Tclim = xr.open_dataset(
+    "reference://",
+    engine="zarr",
+    backend_kwargs={"consolidated": False},
+    storage_options={"fo": refs_json_path_T},
+    chunks="auto",
+)
+
+refs_json_path_S = "/gxfs_work/geomar/smomw452/GLORYS12/schillerweiss_2025/data/climatology_refs_S.json"
+
+ds_Sclim = xr.open_dataset(
+    "reference://",
+    engine="zarr",
+    backend_kwargs={"consolidated": False},
+    storage_options={"fo": refs_json_path_S},
+    chunks="auto",
+)
+
+Tclim = ds_Tclim["votemper"]
+Sclim = ds_Sclim["vosaline"]
+
+ds_tfile = xr.open_dataset(tfiles[0])
+nav_lat = ds_tfile["nav_lat"]
+nav_lon = ds_tfile["nav_lon"]
+
+Tclim = Tclim.assign_coords({"nav_lat": nav_lat, "nav_lon": nav_lon})
+
+Sclim = Sclim.assign_coords({"nav_lat": nav_lat, "nav_lon": nav_lon})
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", parcels.FileWarning)
     fieldsetC = parcels.FieldSet.from_nemo(
@@ -195,6 +230,35 @@ with warnings.catch_warnings():
         timestamps=timestamps,
         allow_time_extrapolation=True,
     )
+
+fieldsetC.add_field(
+    Field.from_xarray(
+        Tclim,
+        name="Tclim",
+        dimensions={
+            "lon": "nav_lon",
+            "lat": "nav_lat",
+            "depth": "deptht",
+            "time": "time_counter",
+        },
+        allow_time_extrapolation=True,
+    )
+)
+
+fieldsetC.add_field(
+    Field.from_xarray(
+        Sclim,
+        name="Sclim",
+        dimensions={
+            "lon": "nav_lon",
+            "lat": "nav_lat",
+            "depth": "deptht",
+            "time": "time_counter",
+        },
+        allow_time_extrapolation=True,
+    )
+)
+
 
 # Prepare particle release
 lon_release = lon  # longitude of release
@@ -284,11 +348,14 @@ def run_parcels(
 kernels = [
     parcels.AdvectionRK4_3D,
     custom_kernel.sampling,
+    custom_kernel.SampleTSAnomaly,
     custom_kernel.age,
     custom_kernel.velocity_sampling,
     custom_kernel.TotalDistance,
     custom_kernel.DeleteParticle_outside_domain_beached,
 ]
+
+
 runs = db.from_sequence(release_times, npartitions=len(release_times)).map(
     lambda t: run_parcels(
         [t],

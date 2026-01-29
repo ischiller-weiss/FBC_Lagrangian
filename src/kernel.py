@@ -10,12 +10,21 @@ from parcels import JITParticle, Variable
 
 
 class SampleParticle(JITParticle):
-    temp = Variable("temp", dtype=np.float32, initial=-100)  # fieldsetC.T
+    # Instantaneous sampled fields
+    temp = Variable("temp", dtype=np.float32, initial=-100)
     salt = Variable("salt", dtype=np.float32, initial=-100)
+
+    # Anomalies
+    temp_anom = Variable("temp_anom", dtype=np.float32, initial=0.0)
+    salt_anom = Variable("salt_anom", dtype=np.float32, initial=0.0)
+
+    # Diagnostics
     age = Variable("age", dtype=np.float32, initial=0)
     uvel = Variable("uvel", dtype=np.float32, initial=0)
     vvel = Variable("vvel", dtype=np.float32, initial=0)
     distance = Variable("distance", dtype=np.float32, initial=0.0)
+
+    # Internal bookkeeping (not written)
     prev_lon = Variable(
         "prev_lon", dtype=np.float32, to_write=False, initial=attrgetter("lon")
     )
@@ -45,6 +54,20 @@ def sampling(particle, fieldset, time):
     """Sample temperature & salinity."""
     particle.temp = fieldset.T[time, particle.depth, particle.lat, particle.lon]
     particle.salt = fieldset.S[time, particle.depth, particle.lat, particle.lon]
+
+
+def SampleTSAnomaly(particle, fieldset, time):
+    # rename local variables
+    T_model = fieldset.T[time, particle.depth, particle.lat, particle.lon]
+    T_clim_model = fieldset.Tclim[time, particle.depth, particle.lat, particle.lon]
+    S_model = fieldset.S[time, particle.depth, particle.lat, particle.lon]
+    S_clim_model = fieldset.Sclim[time, particle.depth, particle.lat]
+
+    particle.temp = T_model
+    particle.temp_anom = T_model - T_clim_model
+
+    particle.salt = S_model
+    particle.salt_anom = S_model - S_clim_model
 
 
 def TotalDistance(particle, fieldset, time):
