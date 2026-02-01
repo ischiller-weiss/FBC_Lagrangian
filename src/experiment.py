@@ -394,8 +394,7 @@ cluster = dask_jobqueue.SLURMCluster(
     cores=1,
     processes=1,
     job_cpu=1,
-    n_workers=1,
-    memory="32GB",
+    memory="60GB",
     # SLURM job script things
     queue="base",
     walltime="1-12:00:00",
@@ -404,9 +403,9 @@ cluster = dask_jobqueue.SLURMCluster(
     local_directory="$TMPDIR",  # for spilling tmp data to disk
     log_directory=f"../logs/{jobid}",
     job_extra_directives=[
-        f"--error=../logs/{jobid}/dask-worker-{jobid}.%N.log",
-        f"--output=../logs/{jobid}/dask-worker-{jobid}.%N.log",
-        "--exclude=nesh-clk414,nesh-clk352,nesh-clk502,nesh-clk459,nesh-clk598",
+        f"--error=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
+        f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
+        "--exclude=nesh-clk[352,363,377,384,391,414,454,459,469,470,493,502,598]",
     ],
     worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"],
 )
@@ -416,7 +415,7 @@ logger.info(client)
 
 cluster.adapt(
     minimum=1,
-    maximum=1,
+    maximum=100,
 )
 
 runs.compute()
