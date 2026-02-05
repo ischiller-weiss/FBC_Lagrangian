@@ -397,7 +397,7 @@ cluster = dask_jobqueue.SLURMCluster(
     memory="60GB",
     # SLURM job script things
     queue="base",
-    walltime="1-12:00:00",
+    walltime="1-14:30:00",
     # Dask worker network and temporary storage
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
@@ -407,7 +407,7 @@ cluster = dask_jobqueue.SLURMCluster(
         f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
         "--exclude=nesh-clk[352,358,363,377,384,387,391,414,416,454,459,469,470,493,502,511,555,586,594,598,538,428,445,415,446,570]",
     ],
-    worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"],
+    worker_extra_args=["--lifetime", "38h", "--lifetime-stagger", "4m"],
 )
 
 client = dask.distributed.Client(cluster)
