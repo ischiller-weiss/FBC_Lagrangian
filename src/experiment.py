@@ -405,7 +405,7 @@ cluster = dask_jobqueue.SLURMCluster(
     job_extra_directives=[
         f"--error=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
         f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
-        "--exclude=nesh-clk[352,363,377,384,391,414,454,459,469,470,493,502,598]",
+        "--exclude=nesh-clk[352,358,363,377,384,387,391,414,416,454,459,469,470,493,502,511,555,586,594,598,538,428,445,415,446,570]",
     ],
     worker_extra_args=["--lifetime", "34h", "--lifetime-stagger", "4m"],
 )
