@@ -17,6 +17,7 @@ import pandas as pd
 import parcels
 import tqdm as tqdm
 import xarray as xr
+from dask.distributed import get_worker
 from loguru import logger
 from parcels import Field
 
@@ -362,6 +363,13 @@ def run_parcels(
     # Write completion marker file to indicate successful execution
     with open(done_marker, "w") as f:
         f.write(f"Completed at {datetime.datetime.now()}\n")
+
+    # Shut down the current worker to ensure next run gets a fresh one
+    try:
+        worker = get_worker()
+        worker.close(nanny=True, timeout=10)
+    except Exception as e:
+        logging.warning(f"Failed to shut down worker after completion: {e}")
 
 
 kernels = [
