@@ -1,5 +1,6 @@
 #!/gxfs_home/geomar/smomw452//miniconda3/envs/py3_std_maps_2023-11-20/bin/python
 import argparse
+import asyncio
 import datetime
 import logging
 import os
@@ -367,7 +368,7 @@ def run_parcels(
     # Shut down the current worker to ensure next run gets a fresh one
     try:
         worker = get_worker()
-        worker.close(nanny=True, timeout=10)
+        asyncio.run(worker.close(nanny=True, timeout=10))
     except Exception as e:
         logging.warning(f"Failed to shut down worker after completion: {e}")
 
