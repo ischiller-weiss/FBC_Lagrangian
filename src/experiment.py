@@ -131,6 +131,29 @@ elif args.seeding == "uniform":
         f"Total number of particles per release: {along_cross_section_points * number_of_depth_levels}"
     )
 
+# Split particles into chunks of approximately 1000 particles each
+chunk_size = 1000
+n_total_particles = len(lon)
+n_chunks = int(np.ceil(n_total_particles / chunk_size))
+
+# Create chunks of particle positions
+particle_chunks = []
+for i in range(n_chunks):
+    start_idx = i * chunk_size
+    end_idx = min((i + 1) * chunk_size, n_total_particles)
+    particle_chunks.append(
+        {
+            "lon": lon[start_idx:end_idx],
+            "lat": lat[start_idx:end_idx],
+            "depth": depth[start_idx:end_idx],
+            "chunk_id": i,
+            "n_particles": end_idx - start_idx,
+        }
+    )
+
+logger.info(f"Total particles per release: {n_total_particles}")
+logger.info(f"Split into {n_chunks} chunks of ~{chunk_size} particles each")
+
 logger.info(f"Release times: {release_times}")
 
 # Model filenames
@@ -286,9 +309,10 @@ def run_parcels(
     kernels: list,
     seed: int,
     output_dir: str,
+    chunk_id: int = 0,
 ):
     times = [t.to_pydatetime() for t in release_times]
-    output_path = f'{output_dir}/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr'
+    output_path = f'{output_dir}/parcels_releases_seed-{seed}_chunk-{chunk_id:03d}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr'
     done_marker = output_path + ".done"
 
     # Skip if computation already completed successfully
@@ -303,7 +327,7 @@ def run_parcels(
         lon=np.tile(lon, len(release_times)),
         lat=np.tile(lat, len(release_times)),
         depth=np.tile(depth, len(release_times)),
-        time=np.repeat(times, len(lon_release)),
+        time=np.repeat(times, len(lon)),
     )
 
     logging.info(f"Created {len(pset)} particles")
@@ -384,17 +408,25 @@ kernels = [
 ]
 
 
-runs = db.from_sequence(release_times, npartitions=len(release_times)).map(
-    lambda t: run_parcels(
-        [t],
-        lon,
-        lat,
-        depth,
-        n_particles_per_release,
+# Create a list of (release_time, chunk) tuples
+release_chunk_pairs = [(rt, chunk) for rt in release_times for chunk in particle_chunks]
+
+logger.info(
+    f"Total number of jobs: {len(release_chunk_pairs)} (release_times: {len(release_times)} × chunks: {len(particle_chunks)})"
+)
+
+runs = db.from_sequence(release_chunk_pairs, npartitions=len(release_chunk_pairs)).map(
+    lambda pair: run_parcels(
+        [pair[0]],
+        pair[1]["lon"],
+        pair[1]["lat"],
+        pair[1]["depth"],
+        pair[1]["n_particles"],
         fieldsetC,
         kernels=kernels,
         seed=seed,
         output_dir=args.output_dir,
+        chunk_id=pair[1]["chunk_id"],
     )
 )
 
@@ -403,10 +435,10 @@ cluster = dask_jobqueue.SLURMCluster(
     cores=1,
     processes=1,
     job_cpu=1,
-    memory="60GB",
+    memory="20GB",
     # SLURM job script things
     queue="base",
-    walltime="1-14:30:00",
+    walltime="0-13:00:00",
     # Dask worker network and temporary storage
     interface="ib0",
     local_directory="$TMPDIR",  # for spilling tmp data to disk
@@ -414,9 +446,9 @@ cluster = dask_jobqueue.SLURMCluster(
     job_extra_directives=[
         f"--error=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
         f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
-        "--exclude=nesh-clk[352,358,363,377,384,387,391,414,416,454,459,469,470,493,502,511,555,586,594,598,538,428,445,415,446,570]",
+        "--exclude=nesh-clk[352,358,363,377,384,387,391,394,398,414,416,433,438,454,459,469,470,479,483,493,502,511,555,586,594,598,538,428,445,415,446,570,573]",
     ],
-    worker_extra_args=["--lifetime", "38h", "--lifetime-stagger", "4m"],
+    worker_extra_args=["--lifetime", "12h", "--lifetime-stagger", "4m"],
 )
 
 client = dask.distributed.Client(cluster)
