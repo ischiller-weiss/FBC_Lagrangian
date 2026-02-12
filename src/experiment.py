@@ -448,7 +448,7 @@ cluster = dask_jobqueue.SLURMCluster(
         f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
         "--exclude=nesh-clk[352,358,363,377,384,387,391,394,398,414,416,433,438,454,459,469,470,479,483,493,502,511,555,586,594,598,538,428,445,415,446,570,573]",
     ],
-    worker_extra_args=["--lifetime", "12h", "--lifetime-stagger", "4m"],
+    worker_extra_args=["--lifetime", "12h"],
 )
 
 client = dask.distributed.Client(cluster)
