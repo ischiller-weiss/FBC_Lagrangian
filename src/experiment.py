@@ -1,5 +1,6 @@
 #!/gxfs_home/geomar/smomw452//miniconda3/envs/py3_std_maps_2023-11-20/bin/python
 import argparse
+import asyncio
 import datetime
 import logging
 import os
@@ -17,7 +18,7 @@ import pandas as pd
 import parcels
 import tqdm as tqdm
 import xarray as xr
-from dask.distributed import as_completed, get_worker
+from dask.distributed import get_worker
 from loguru import logger
 from parcels import Field
 
@@ -388,13 +389,12 @@ def run_parcels(
     with open(done_marker, "w") as f:
         f.write(f"Completed at {datetime.datetime.now()}\n")
 
-    # Return worker address so the driver can retire it after the task finishes
+    # Shut down the current worker to ensure next run gets a fresh one
     try:
         worker = get_worker()
-        return worker.address
+        asyncio.run(worker.close(nanny=True, timeout=10))
     except Exception as e:
-        logging.warning(f"Failed to read worker address after completion: {e}")
-        return None
+        logging.warning(f"Failed to shut down worker after completion: {e}")
 
 
 kernels = [
@@ -462,17 +462,3 @@ cluster.adapt(
 # Submit tasks individually and handle failures without cancelling the full run
 delayed_runs = runs.to_delayed()
 futures = client.compute(delayed_runs, retries=2)
-
-retired_workers = set()
-for future in as_completed(futures):
-    try:
-        worker_addr = future.result()
-        if worker_addr and worker_addr not in retired_workers:
-            try:
-                client.retire_workers([worker_addr], close_workers=True, remove=True)
-                retired_workers.add(worker_addr)
-                logger.info(f"Retired worker after task completion: {worker_addr}")
-            except Exception as e:
-                logger.warning(f"Failed to retire worker {worker_addr}: {e}")
-    except Exception as e:
-        logger.error(f"Task failed but run continues: {e}")
