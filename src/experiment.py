@@ -397,68 +397,77 @@ def run_parcels(
         logging.warning(f"Failed to shut down worker after completion: {e}")
 
 
-kernels = [
-    parcels.AdvectionRK4_3D,
-    custom_kernel.sampling,
-    custom_kernel.SampleTSAnomaly,
-    custom_kernel.age,
-    custom_kernel.velocity_sampling,
-    custom_kernel.TotalDistance,
-    custom_kernel.DeleteParticle_outside_domain_beached,
-]
+if __name__ == "__main__":
+    kernels = [
+        parcels.AdvectionRK4_3D,
+        custom_kernel.sampling,
+        custom_kernel.SampleTSAnomaly,
+        custom_kernel.age,
+        custom_kernel.velocity_sampling,
+        custom_kernel.TotalDistance,
+        custom_kernel.DeleteParticle_outside_domain_beached,
+    ]
 
+    # Create a list of (release_time, chunk) tuples
+    release_chunk_pairs = [
+        (rt, chunk) for rt in release_times for chunk in particle_chunks
+    ]
 
-# Create a list of (release_time, chunk) tuples
-release_chunk_pairs = [(rt, chunk) for rt in release_times for chunk in particle_chunks]
-
-logger.info(
-    f"Total number of jobs: {len(release_chunk_pairs)} (release_times: {len(release_times)} × chunks: {len(particle_chunks)})"
-)
-
-runs = db.from_sequence(release_chunk_pairs, npartitions=len(release_chunk_pairs)).map(
-    lambda pair: run_parcels(
-        [pair[0]],
-        pair[1]["lon"],
-        pair[1]["lat"],
-        pair[1]["depth"],
-        pair[1]["n_particles"],
-        fieldsetC,
-        kernels=kernels,
-        seed=seed,
-        output_dir=args.output_dir,
-        chunk_id=pair[1]["chunk_id"],
+    logger.info(
+        f"Total number of jobs: {len(release_chunk_pairs)} (release_times: {len(release_times)} × chunks: {len(particle_chunks)})"
     )
-)
 
-cluster = dask_jobqueue.SLURMCluster(
-    # Dask worker size
-    cores=1,
-    processes=1,
-    job_cpu=1,
-    memory="20GB",
-    # SLURM job script things
-    queue="base",
-    walltime="0-13:00:00",
-    # Dask worker network and temporary storage
-    interface="ib0",
-    local_directory="$TMPDIR",  # for spilling tmp data to disk
-    log_directory=f"../logs/{jobid}",
-    job_extra_directives=[
-        f"--error=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
-        f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
-        "--exclude=nesh-clk[352,356,358,363,377,384,387,390-391,394,396,398,414-416,428,433-434,438,440,445-446,454,459,469-470,479,483,493,502,511,515,529,538,555,557,570,573,586-587,594,598]",
-    ],
-    worker_extra_args=["--lifetime", "12h"],
-)
+    runs = db.from_sequence(
+        release_chunk_pairs, npartitions=len(release_chunk_pairs)
+    ).map(
+        lambda pair: run_parcels(
+            [pair[0]],
+            pair[1]["lon"],
+            pair[1]["lat"],
+            pair[1]["depth"],
+            pair[1]["n_particles"],
+            fieldsetC,
+            kernels=kernels,
+            seed=seed,
+            output_dir=args.output_dir,
+            chunk_id=pair[1]["chunk_id"],
+        )
+    )
 
-client = dask.distributed.Client(cluster)
-logger.info(client)
+    cluster = dask_jobqueue.SLURMCluster(
+        # Dask worker size
+        cores=1,
+        processes=1,
+        job_cpu=1,
+        memory="20GB",
+        # SLURM job script things
+        queue="base",
+        walltime="0-13:00:00",
+        # Dask worker network and temporary storage
+        interface="ib0",
+        local_directory="$TMPDIR",  # for spilling tmp data to disk
+        log_directory=f"../logs/{jobid}",
+        job_extra_directives=[
+            f"--error=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
+            f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
+            "--exclude=nesh-clk[352,356,358,363,377,384,387,390-391,394,396,398,414-416,428,433-434,438,440,445-446,454,459,469-470,479,483,493,502,511,515,529,538,555,557,570,573,586-587,594,598]",
+        ],
+        worker_extra_args=["--lifetime", "12h"],
+    )
 
-cluster.adapt(
-    minimum=1,
-    maximum=100,
-)
+    client = dask.distributed.Client(cluster)
+    logger.info(client)
 
-# Submit tasks individually and handle failures without cancelling the full run
-delayed_runs = runs.to_delayed()
-futures = client.compute(delayed_runs, retries=2)
+    cluster.adapt(
+        minimum=1,
+        maximum=100,
+    )
+
+    # Submit tasks individually and handle failures without cancelling the full run
+    delayed_runs = runs.to_delayed()
+    futures = client.compute(delayed_runs, retries=2)
+    for future in tqdm.tqdm(futures, total=len(futures)):
+        try:
+            future.result()
+        except Exception as e:
+            logger.error(f"Task failed after retries: {e}")
