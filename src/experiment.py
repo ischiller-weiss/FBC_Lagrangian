@@ -1,4 +1,4 @@
-#!/gxfs_work/geomar/smomw452/GLORYS12/schillerweiss_2025/.venv/bin/python
+#!/gxfs_home/geomar/smomw452//miniconda3/envs/py3_std_maps_2023-11-20/bin/python
 import argparse
 import asyncio
 import datetime
