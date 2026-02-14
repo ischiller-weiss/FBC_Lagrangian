@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import datetime
+import gc
 import logging
 import os
 import subprocess
@@ -311,6 +312,10 @@ def run_parcels(
     output_dir: str,
     chunk_id: int = 0,
 ):
+    # Force garbage collection at the start to free up memory from previous tasks
+    gc.collect()
+    logging.info("Garbage collected at start of run_parcels")
+
     times = [t.to_pydatetime() for t in release_times]
     output_path = f'{output_dir}/parcels_releases_seed-{seed}_chunk-{chunk_id:03d}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr'
     done_marker = output_path + ".done"
@@ -389,6 +394,11 @@ def run_parcels(
     with open(done_marker, "w") as f:
         f.write(f"Completed at {datetime.datetime.now()}\n")
 
+    # Force garbage collection before shutting down worker
+    logging.info("Garbage collecting before worker shutdown")
+    gc.collect()
+    logging.info("Garbage collection completed")
+
     # Shut down the current worker to ensure next run gets a fresh one
     try:
         worker = get_worker()
@@ -450,7 +460,7 @@ if __name__ == "__main__":
         job_extra_directives=[
             f"--error=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
             f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
-            "--exclude=nesh-clk[352,356,358,363,377,384,387,390-391,394,396,398,414-416,428,433-434,438,440,445-446,454,459,469-470,479,483,493,502,511,515,529,538,555,557,570,573,586-587,594,598]",
+            "--exclude=nesh-clk[352,356,358,363,377,384,387,390-391,394,396,398,414-416,428,433-434,438,440,445-446,454,456,459,469-470,479,483,493,502,511,515,529,538,555,557,570,573,586-587,594,598]",
         ],
         worker_extra_args=["--lifetime", "12h"],
     )
@@ -460,7 +470,7 @@ if __name__ == "__main__":
 
     cluster.adapt(
         minimum=1,
-        maximum=100,
+        maximum=200,
     )
 
     # Submit tasks individually and handle failures without cancelling the full run
