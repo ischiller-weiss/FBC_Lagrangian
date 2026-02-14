@@ -3,15 +3,19 @@ name = "schillerweiss-2025"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.8,<3.11"
+requires-python = ">=3.12"
 dependencies = [
+    "cf-python>=3.19.0",
     "cftime>=1.6.4.post1",
-    "dask<2024.1.0",
-    "dask-jobqueue<=0.8.2",
+    "dask",
+    "dask-jobqueue",
+    "distributed>=2023.12.1",
     "ipykernel",
+    "loguru>=0.7.3",
     "matplotlib>=3.7.5",
+    "parcels==3.1.4",
     "rechunker>=0.5.2",
     "tqdm>=4.67.1",
-    "xarray<2024.1.1",
-    "zarr<3.0",
+    "xarray",
+    "zarr",
 ]
