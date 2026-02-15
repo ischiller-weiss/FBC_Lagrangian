@@ -319,9 +319,11 @@ def run_parcels(
     times = [t.to_pydatetime() for t in release_times]
     output_path = f'{output_dir}/parcels_releases_seed-{seed}_chunk-{chunk_id:03d}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr'
     done_marker = output_path + ".done"
+    old_output_path = f'{output_dir}/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr'
+    old_done_marker = old_output_path + ".done"
 
     # Skip if computation already completed successfully
-    if os.path.exists(done_marker):
+    if os.path.exists(done_marker) or os.path.exists(old_done_marker):
         logging.info(f"Computation already completed for {output_path}, skipping")
         return
 
