@@ -404,7 +404,7 @@ def run_parcels(
     # Shut down the current worker to ensure next run gets a fresh one
     try:
         worker = get_worker()
-        asyncio.run(worker.close(nanny=True, timeout=10))
+        asyncio.run(worker.close_gracefully(restart=True))
     except Exception as e:
         logging.warning(f"Failed to shut down worker after completion: {e}")
 
