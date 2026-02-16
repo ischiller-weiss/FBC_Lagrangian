@@ -20,7 +20,6 @@ import parcels
 import tqdm as tqdm
 import xarray as xr
 from dask.distributed import get_worker
-from distributed import fire_and_forget
 from loguru import logger
 from parcels import Field
 
@@ -478,4 +477,9 @@ if __name__ == "__main__":
 
     # Submit tasks individually and handle failures without cancelling the full run
     delayed_runs = runs.to_delayed()
-    fire_and_forget(client.compute(delayed_runs, retries=2))
+    futures = client.compute(delayed_runs, retries=2)
+    for future in tqdm.tqdm(futures, total=len(futures)):
+        try:
+            future.result()
+        except Exception as e:
+            logger.error(f"Task failed after retries: {e}")
