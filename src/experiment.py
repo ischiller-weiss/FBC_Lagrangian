@@ -451,7 +451,7 @@ if __name__ == "__main__":
         cores=1,
         processes=1,
         job_cpu=1,
-        memory="20GB",
+        memory="25GB",
         # SLURM job script things
         queue="base",
         walltime="0-13:00:00",
@@ -472,7 +472,7 @@ if __name__ == "__main__":
 
     cluster.adapt(
         minimum=1,
-        maximum=100,
+        maximum=50,
     )
 
     # Submit tasks individually and handle failures without cancelling the full run
