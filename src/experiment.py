@@ -408,14 +408,38 @@ if __name__ == "__main__":
         custom_kernel.DeleteParticle_outside_domain_beached,
     ]
 
+    # Helper function to check if a task is already completed
+    def is_task_completed(release_time, chunk_id, seed, output_dir):
+        output_path = f'{output_dir}/parcels_releases_seed-{seed}_chunk-{chunk_id:03d}_{release_time.strftime("%Y%m%d%H")}-{release_time.strftime("%Y%m%d%H")}.zarr'
+        done_marker = output_path + ".done"
+        old_output_path = f'{output_dir}/parcels_releases_seed-{seed}_{release_time.strftime("%Y%m%d")}-{release_time.strftime("%Y%m%d%H")}.zarr'
+        old_done_marker = old_output_path + ".done"
+        return os.path.exists(done_marker) or os.path.exists(old_done_marker)
+
     # Create a list of (release_time, chunk) tuples
-    release_chunk_pairs = [
+    all_release_chunk_pairs = [
         (rt, chunk) for rt in release_times for chunk in particle_chunks
     ]
 
     logger.info(
-        f"Total number of jobs: {len(release_chunk_pairs)} (release_times: {len(release_times)} × chunks: {len(particle_chunks)})"
+        f"Total number of jobs: {len(all_release_chunk_pairs)} (release_times: {len(release_times)} × chunks: {len(particle_chunks)})"
     )
+
+    # Filter out already completed tasks
+    release_chunk_pairs = [
+        (rt, chunk)
+        for rt, chunk in all_release_chunk_pairs
+        if not is_task_completed(rt, chunk["chunk_id"], seed, args.output_dir)
+    ]
+
+    logger.info(
+        f"Jobs remaining after filtering completed: {len(release_chunk_pairs)} "
+        f"(skipped {len(all_release_chunk_pairs) - len(release_chunk_pairs)} already completed)"
+    )
+
+    if len(release_chunk_pairs) == 0:
+        logger.info("All tasks already completed. Exiting.")
+        exit(0)
 
     runs = db.from_sequence(
         release_chunk_pairs, npartitions=len(release_chunk_pairs)
@@ -458,15 +482,19 @@ if __name__ == "__main__":
     client = dask.distributed.Client(cluster)
     logger.info(client)
 
+    n_worker_max = 2
+    n_worker_min = 1
+
     cluster.adapt(
-        minimum=1,
-        maximum=50,
+        minimum=n_worker_min,
+        maximum=n_worker_max,
     )
 
     # Submit tasks individually and handle failures without cancelling the full run
     delayed_runs = runs.to_delayed()
     futures = client.compute(delayed_runs, retries=2)
     for future in tqdm.tqdm(futures, total=len(futures)):
+        cluster.adapt(minimum=n_worker_min, maximum=n_worker_max)
         try:
             future.result()
             # Restart the worker that completed this task to free memory
