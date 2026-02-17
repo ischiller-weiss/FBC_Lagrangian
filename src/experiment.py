@@ -482,7 +482,7 @@ if __name__ == "__main__":
     client = dask.distributed.Client(cluster)
     logger.info(client)
 
-    n_worker_max = 2
+    n_worker_max = 200
     n_worker_min = 1
 
     cluster.adapt(
