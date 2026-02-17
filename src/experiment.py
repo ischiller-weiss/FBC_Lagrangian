@@ -412,7 +412,7 @@ if __name__ == "__main__":
     def is_task_completed(release_time, chunk_id, seed, output_dir):
         output_path = f'{output_dir}/parcels_releases_seed-{seed}_chunk-{chunk_id:03d}_{release_time.strftime("%Y%m%d%H")}-{release_time.strftime("%Y%m%d%H")}.zarr'
         done_marker = output_path + ".done"
-        old_output_path = f'{output_dir}/parcels_releases_seed-{seed}_{release_time.strftime("%Y%m%d")}-{release_time.strftime("%Y%m%d%H")}.zarr'
+        old_output_path = f'{output_dir}/parcels_releases_seed-{seed}_{release_time.strftime("%Y%m%d%H")}-{release_time.strftime("%Y%m%d%H")}.zarr'
         old_done_marker = old_output_path + ".done"
         return os.path.exists(done_marker) or os.path.exists(old_done_marker)
 
