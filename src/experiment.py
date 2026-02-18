@@ -493,28 +493,73 @@ if __name__ == "__main__":
     # Submit tasks individually and handle failures without cancelling the full run
     delayed_runs = runs.to_delayed()
     futures = client.compute(delayed_runs, retries=2)
-    for future in tqdm.tqdm(futures, total=len(futures)):
+
+    completed_count = 0
+    failed_count = 0
+    restart_interval = (
+        10  # Restart workers every N completed tasks to reduce restart frequency
+    )
+
+    for i, future in enumerate(tqdm.tqdm(futures, total=len(futures))):
         cluster.adapt(minimum=n_worker_min, maximum=n_worker_max)
         try:
             future.result()
-            # Restart the worker that completed this task to free memory
-            worker_info = client.who_has(future)
-            if worker_info:
-                # Extract all workers from the dictionary values
-                all_workers = set()
-                for workers_set in worker_info.values():
-                    all_workers.update(workers_set)
-                if all_workers:
-                    logger.info(f"Task completed on workers: {all_workers}")
-                    logger.info(f"Restarting workers: {all_workers}")
-                    client.restart_workers(list(all_workers))
-                else:
-                    logger.info(
-                        "Task completed but no workers found (possibly skipped)"
+            completed_count += 1
+            logger.info(
+                f"Task {i+1}/{len(futures)} completed successfully (total completed: {completed_count}, failed: {failed_count})"
+            )
+
+            # Only restart workers periodically to avoid excessive restarts
+            if completed_count % restart_interval == 0:
+                try:
+                    # Get worker info with timeout
+                    worker_info = client.who_has(future)
+                    if worker_info:
+                        # Extract all workers from the dictionary values
+                        all_workers = set()
+                        for workers_set in worker_info.values():
+                            all_workers.update(workers_set)
+
+                        if all_workers:
+                            # Check which workers are still alive before restarting
+                            current_workers = set(
+                                client.scheduler_info().get("workers", {}).keys()
+                            )
+                            workers_to_restart = list(
+                                all_workers.intersection(current_workers)
+                            )
+
+                            if workers_to_restart:
+                                logger.info(
+                                    f"Restarting {len(workers_to_restart)} workers after {completed_count} tasks: {workers_to_restart}"
+                                )
+                                try:
+                                    # Use wait=False to not block on restart completion
+                                    client.restart_workers(
+                                        workers_to_restart, wait=False
+                                    )
+                                    time.sleep(2)  # Brief pause to let restart initiate
+                                except Exception as restart_error:
+                                    logger.warning(
+                                        f"Worker restart failed (continuing anyway): {restart_error}"
+                                    )
+                            else:
+                                logger.info(
+                                    f"No active workers to restart at task {completed_count}"
+                                )
+                except Exception as worker_error:
+                    logger.warning(
+                        f"Error checking/restarting workers (continuing): {worker_error}"
                     )
-            else:
-                logger.info(
-                    "Task completed but no worker info available (possibly skipped)"
-                )
+
         except Exception as e:
-            logger.error(f"Task failed after retries: {e}")
+            failed_count += 1
+            logger.error(
+                f"Task {i+1}/{len(futures)} failed after retries: {e} (total completed: {completed_count}, failed: {failed_count})"
+            )
+            # Continue to next task rather than stopping
+            continue
+
+    logger.info(
+        f"All tasks processed. Completed: {completed_count}, Failed: {failed_count}"
+    )
