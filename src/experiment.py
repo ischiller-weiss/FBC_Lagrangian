@@ -483,7 +483,7 @@ if __name__ == "__main__":
     logger.info(client)
 
     n_worker_max = 200
-    n_worker_min = 1
+    n_worker_min = 200
 
     cluster.adapt(
         minimum=n_worker_min,
