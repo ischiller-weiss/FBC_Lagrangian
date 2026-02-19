@@ -466,7 +466,7 @@ if __name__ == "__main__":
         memory="25GB",
         # SLURM job script things
         queue="base",
-        walltime="0-13:00:00",
+        walltime="0-24:00:00",
         # Dask worker network and temporary storage
         interface="ib0",
         local_directory="$TMPDIR",  # for spilling tmp data to disk
@@ -474,9 +474,9 @@ if __name__ == "__main__":
         job_extra_directives=[
             f"--error=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
             f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
-            "--exclude=nesh-clk[352,356,358,363,366,377,384,387,390-391,394,396,398,402,414-416,428,433-434,438,440,445-446,454,456,459,469-470,479,483,493,502,511,515,529,536,538,555,557,570,573,586-587,594,598,602]",
+            "--exclude=nesh-clk[352,356,358,363,366,377,384,385,387,390-392,394,396,398,402,414-416,428,433-434,438,440,445-446,454,456,459,469-470,479,483,493,502,511,515,529,536,538,555,557,570,573,579,586-587,594,598,602]",
         ],
-        worker_extra_args=["--lifetime", "12h"],
+        worker_extra_args=["--lifetime", "23h"],
     )
 
     client = dask.distributed.Client(cluster)
