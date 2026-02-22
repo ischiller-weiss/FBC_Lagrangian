@@ -471,6 +471,7 @@ if __name__ == "__main__":
         interface="ib0",
         local_directory="$TMPDIR",  # for spilling tmp data to disk
         log_directory=f"../logs/{jobid}",
+        name=f"{jobid[-3:]}-dask-worker",
         job_extra_directives=[
             f"--error=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
             f"--output=../logs/{jobid}/dask-worker-{jobid}.%j.%N.%s.log",
