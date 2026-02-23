@@ -133,10 +133,10 @@ def run_parcels(
             tries += 1
             time.sleep(10)
             pass
-
-    # Write completion marker file to indicate successful execution
-    with open(done_marker, "w") as f:
-        f.write(f"Completed at {datetime.datetime.now()}\n")
+        else:
+            # Write completion marker file to indicate successful execution
+            with open(done_marker, "w") as f:
+                f.write(f"Completed at {datetime.datetime.now()}\n")
 
 
 if __name__ == "__main__":
