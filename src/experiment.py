@@ -175,6 +175,34 @@ if __name__ == "__main__":
         default="../data",
         help="Output directory for particle release files",
     )
+    parser.add_argument(
+        "--lon_bds",
+        type=float,
+        nargs=2,
+        default=[-5.5, -3.5],
+        metavar=("LON_MIN", "LON_MAX"),
+        help="Longitude bounds for particle release (default: -5.5 -3.5)",
+    )
+    parser.add_argument(
+        "--lat_bds",
+        type=float,
+        nargs=2,
+        default=[61.05, 60.55],
+        metavar=("LAT_MIN", "LAT_MAX"),
+        help="Latitude bounds for particle release (default: 61.05 60.55)",
+    )
+    parser.add_argument(
+        "--start_depth",
+        type=float,
+        default=600,
+        help="Start depth for particle release in meters (default: 600)",
+    )
+    parser.add_argument(
+        "--end_depth",
+        type=float,
+        default=1150,
+        help="End depth for particle release in meters (default: 1150)",
+    )
     args = parser.parse_args()
 
     logger.add(f"../logs/{jobid}/experiment.log")
@@ -193,10 +221,10 @@ if __name__ == "__main__":
 
     n_particles_per_release = 1_000
 
-    lon_bds = (-5.5, -3.5)
-    lat_bds = (61.05, 60.55)
-    start_depth = 600
-    end_depth = 1150
+    lon_bds = tuple(args.lon_bds)
+    lat_bds = tuple(args.lat_bds)
+    start_depth = args.start_depth
+    end_depth = args.end_depth
 
     if args.seeding == "random":
         lon = np.random.uniform(*lon_bds, size=(n_particles_per_release,))
