@@ -17,6 +17,7 @@ import pandas as pd
 import parcels
 import tqdm as tqdm
 import xarray as xr
+from dateutil.relativedelta import relativedelta
 from loguru import logger
 from parcels import Field
 
@@ -111,10 +112,10 @@ def run_parcels(
         output_path,
         pset,
         timedelta(days=1),
-        chunks=(len(pset), 31 * 365),
-    )  # 31 years for max backtracking expt, 2024 - 1994, 365*output freq
+        chunks=(len(pset), 20 * 365),
+    )  # 20 years for max backtracking expt 365*output freq
 
-    runtime = np.min(release_times) - datetime.datetime(1993, 1, 2)
+    runtime = np.min(release_times) + relativedelta(years=20)
     logging.info(f"Runtime: {runtime}")
 
     tries = 0
@@ -123,7 +124,7 @@ def run_parcels(
             pset.execute(
                 kernel,
                 runtime=runtime,
-                dt=-timedelta(minutes=10),
+                dt=timedelta(minutes=10),
                 output_file=outputfile,
             )
             tries = np.inf
@@ -166,7 +167,7 @@ if __name__ == "__main__":
         "--seeding",
         type=str,
         default="uniform",
-        choices=["random", "uniform"],
+        choices=["random", "uniform", "2Duniform"],
         help="Seeding strategy for particle release",
     )
     parser.add_argument(
@@ -256,6 +257,43 @@ if __name__ == "__main__":
         )
         logger.info(
             f"Total number of particles per release: {along_cross_section_points * number_of_depth_levels}"
+        )
+    elif args.seeding == "2Duniform":
+        along_cross_section_points_x = 18
+        along_cross_section_points_y = 23
+        number_of_depth_levels = 50
+        depth_levels = np.linspace(start_depth, end_depth, number_of_depth_levels)
+        depth = np.transpose(
+            np.tile(depth_levels, (along_cross_section_points_x, 1))
+        ).flatten()
+        spacing_km_x, evenly_spaced_coords_x = interpolate_coordinates(
+            [lat_bds[0], lon_bds[0]],
+            [lat_bds[0], lon_bds[1]],
+            along_cross_section_points_x,
+        )
+
+        spacing_km_y, evenly_spaced_coords_y = interpolate_coordinates(
+            [lat_bds[0], lon_bds[0]],
+            [lat_bds[1], lon_bds[0]],
+            along_cross_section_points_y,
+        )
+
+        evenly_spaced_coords = []
+        for lat, lon in evenly_spaced_coords_x:
+            for lat_y, lon_y in evenly_spaced_coords_y:
+                evenly_spaced_coords.append((lat_y, lon))
+                lat_pt = np.array([coord[0] for coord in evenly_spaced_coords])
+        lon_pt = np.array([coord[1] for coord in evenly_spaced_coords])
+        lat = np.tile(lat_pt, (number_of_depth_levels, 1)).flatten()
+        lon = np.tile(lon_pt, (number_of_depth_levels, 1)).flatten()
+        logger.info(
+            f"Spacing between particles along x: {spacing_km_x:.2f} km, along y: {spacing_km_y} km"
+        )
+        logger.info(
+            f"Vertical spacing between depth levels given {number_of_depth_levels} levels: {(end_depth - start_depth) / (number_of_depth_levels - 1):.2f} m"
+        )
+        logger.info(
+            f"Total number of particles per release: {along_cross_section_points_x * along_cross_section_points_y * number_of_depth_levels}"
         )
 
     # Split particles into chunks of approximately 1000 particles each
