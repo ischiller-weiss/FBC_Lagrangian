@@ -151,9 +151,9 @@ timestamps = np.arange(
     + np.timedelta64(1, "h"),  # adding an hour to include the last day
     np.timedelta64(1, "D"),
 )
-assert (
-    len(ufiles) == len(vfiles) == len(timestamps)
-), "Different number of U, V files and timestamps"
+assert len(ufiles) == len(vfiles) == len(timestamps), (
+    "Different number of U, V files and timestamps"
+)
 timestamps = [[t] for t in timestamps]  # convert to a list of lists
 
 variables = {
@@ -244,7 +244,6 @@ def run_parcels(
             print("Retrying...")
             tries += 1
             time.sleep(10)
-            pass
 
     # Get land_indices of current release
     t = np.zeros(len(pset))
@@ -261,7 +260,7 @@ def run_parcels(
     kernel = pset.Kernel(kernels)
 
     outputfile = parcels.ParticleFile(
-        f'../data/parcels_releases_seed-{seed}_{release_times[0].strftime("%Y%m%d%H")}-{release_times[-1].strftime("%Y%m%d%H")}.zarr',
+        f"../data/parcels_releases_seed-{seed}_{release_times[0].strftime('%Y%m%d%H')}-{release_times[-1].strftime('%Y%m%d%H')}.zarr",
         pset,
         timedelta(hours=12),
         chunks=(500 * 27 * 2, 365),
@@ -285,7 +284,6 @@ def run_parcels(
             print("Retrying...")
             tries += 1
             time.sleep(10)
-            pass
 
 
 cluster = dask_jobqueue.SLURMCluster(
