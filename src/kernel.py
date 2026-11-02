@@ -26,7 +26,7 @@ def age(particle, fieldset, time):
 
 def velocity_sampling(particle, fieldset, time):
     """Sample velocity."""
-    (particle.uvel, particle.vvel) = fieldset.UV[
+    particle.uvel, particle.vvel = fieldset.UV[
         time, particle.depth, particle.lat, particle.lon
     ]
 
